@@ -4,7 +4,6 @@
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import wx, helper_functions
@@ -102,7 +101,7 @@ class ChangeInterval(wx.Dialog):
         record_interval_final = self.record_interval.GetValue()
         if self.test_toggle == "false" and chords_interval_final < record_interval_final:
             record_interval_final = chords_interval_final
-        with open(root + 'scripts/input.txt', 'w') as file:
+        with open("/home/pi/Desktop/variables.txt", 'w') as file:
             file.write(str(record_interval_final) + "," + str(chords_interval_final) + "," + self.chords_toggle + "," + self.chords_id + "," + self.chords_link + "," + self.pressure_level + "," + self.test_toggle + "," + str(self.altitude))
         self.Destroy()
 

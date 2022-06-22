@@ -4,7 +4,6 @@
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import wx, helper_functions
@@ -128,7 +127,7 @@ class ChangeBarometric(wx.Dialog):
 
 
     def OnSave(self, e):
-        with open(root + 'scripts/input.txt', 'w') as file:
+        with open("/home/pi/Desktop/variables.txt", 'w') as file:
             file.write(self.record_interval + "," + self.chords_interval + "," + self.chords_toggle + "," + self.chords_id + "," + self.chords_link + "," + str(self.pressure_level) + "," + self.test_toggle + "," + str(self.altitude))
         self.Destroy()
 

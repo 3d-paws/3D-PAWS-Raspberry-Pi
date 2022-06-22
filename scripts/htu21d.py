@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 # Code to control the HTU21D temperature and humidity sensor. Write observations to disk
-# and to web in intervals determined by input.txt
 # Paul A. Kucera, Ph.D. and Joseph E. Rener
 # UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import board, busio, helper_functions

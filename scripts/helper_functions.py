@@ -4,7 +4,6 @@
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import requests, datetime, re, sys, os
@@ -13,9 +12,14 @@ root = "/home/pi/3d-paws/"
 
 # Get script arguments
 def getArguments():
-	file = open(root + 'scripts/input.txt', 'r')
-	inputs = file.readline().split(",")
-	file.close()
+	# Open the variables file, or make it if it doesn't exist
+	variable_path = "/home/pi/Desktop/variables.txt" 
+	if not os.path.exists(variable_path):
+		with open(variable_path, 'w') as file:
+			file.write("1,1,false,0,3d.chordsrt.com,1013.25,false,100000.0")
+		os.chmod(variable_path, 0o777)
+	with open(variable_path, 'r') as file:
+		inputs = file.readline().split(",")
 	# Get recording interval
 	clean_interval = ''.join(i for i in inputs[0] if i.isdigit())
 	if clean_interval != "":
@@ -74,21 +78,17 @@ def output(show, line, sensor, remote = None):
 		if inputs[6] == "true" or "test_" in sensor:
 			if "test_" in sensor:
 				sensor = sensor.replace("test_", "")
-			#filename = root + 'data/tests/%s/%s_%4d%02d%02d.dat' % (sensor, sensor, now.year, now.month, now.day)
 			filename = create_filename('data/tests/' + sensor + '/', '%s_%4d%02d%02d.dat' %(sensor, sensor, now.year, now.month, now.day))
 			full_line = time + " " + str(now.second) + " " + line
 		else:
 			if sensor == "all":
-				#filename = root + 'data/recordings_%4d%02d%02d.dat' % (now.year, now.month, now.day)
 				filename = create_filename('data/', 'recordings_%4d%02d%02d.dat' %(now.year, now.month, now.day))
 				d = line
 				full_line = "%4.4d %4.02d %4.02d %5.02d %4.02d %9.2f %9.2f %8.2f %8.2f %9.2f %9.2f %8.2f %8.2f %8.2f %9.2f %8.2f %8.2f %8.2f %10.2f %9.2f %9.2f %9.2f %11.2f" % (now.year, now.month, now.day, now.hour, now.minute, d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17])
 			elif remote:
-				#filename = root + 'data/remote_%s_%4d%02d%02d.dat' % (sensor, now.year, now.month, now.day)
 				filename = create_filename('data/', 'remote_%s_%4d%02d%02d.dat' %(sensor, now.year, now.month, now.day))
 				full_line = time + " " + line
 			else:
-				#filename = root + 'data/temporary/' + sensor + '.tmp'
 				filename = create_filename('data/temporary/', sensor + '.tmp')
 				full_line = time + " " + line
 		if os.path.exists(filename) or sensor != "all":

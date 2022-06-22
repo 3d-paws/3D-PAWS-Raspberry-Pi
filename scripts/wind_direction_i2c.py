@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 # Code to control the wind direction I2C sensor. Write observations to disk
-# and to web in intervals determined by input.txt
 # Joseph E. Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import smbus, math, time, datetime, helper_functions

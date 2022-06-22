@@ -1,13 +1,10 @@
 #!/usr/bin/python3
 # Code to control the tipping bucket rain gauge. Write observations to disk
-# and to web in intervals determined by input.txt
 # Paul A. Kucera, Ph.D. and Joseph E. Rener
 # UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
-# Updated: 1 March 2021
 
 # Adpated from Joe Gutting Adafruit SI1145 library for Arduino, Adafruit_GPIO.I2C & BMP Library by Tony DiCola
 #

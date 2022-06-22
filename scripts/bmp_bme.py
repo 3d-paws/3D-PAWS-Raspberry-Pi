@@ -1,11 +1,9 @@
 #!/usr/bin/python
 # Code to control the BMP280 and BME280 I2C sensors. Write observations to disk
-# and to web in intervals determined by input.txt
 # Paul A. Kucera, Ph.D. and Joseph E. Rener
 # NCAR/RAL
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import board, busio, helper_functions
@@ -19,6 +17,7 @@ try:
 	altitude = arguments[7]
 
 	#Initialize correct sensor
+	which_sensor = False
 	try:
 		import adafruit_bmp280
 		i2c = busio.I2C(board.SCL, board.SDA)

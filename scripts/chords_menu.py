@@ -4,9 +4,7 @@
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
-# Updated: 18 February 2021
 
 import wx, helper_functions
 from crontab import CronTab
@@ -167,7 +165,7 @@ class ChangeChords(wx.Dialog):
 
 
     def OnSave(self, e):
-        with open(root + 'scripts/input.txt', 'w') as file:
+        with open("/home/pi/Desktop/variables.txt", 'w') as file:
             file.write(self.record_interval + "," + self.chords_interval + "," + self.chords_toggle + "," + str(int(self.chords_id)) + "," + self.chords_link + "," + self.pressure_level + "," + self.test_toggle + "," + str(self.altitude))
         self.Destroy()
 

@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 # Code to control the MCP9808 temperature sensor. Write observations to disk
-# and to web in intervals determined by input.txt
 # Paul A. Kucera, Ph.D. and Joseph E. Rener
 # UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import adafruit_mcp9808 as mcp9808, board, busio, helper_functions

@@ -35,7 +35,7 @@ setup(
             "board==1.0",
             "gps==3.19",
             "python_crontab==2.6.0",
-            "requests==2.21.0",
+            "requests==2.28.0",
             "setuptools==40.8.0",
             "SI1145==1.0.2",
             "smbus==1.1.post2",
