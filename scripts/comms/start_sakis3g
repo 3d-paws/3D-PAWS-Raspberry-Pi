@@ -1,1 +1,0 @@
-/usr/bin/sakis3g --sudo "connect" APN="Safaricom" APN_USER="saf" APN_PASS="data" USBINTERFACE="0" OTHER="USBMODEM" USBMODEM="12d1:1001"

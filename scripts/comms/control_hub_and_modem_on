@@ -1,3 +1,0 @@
-sudo /home/pi/software/hub-ctrl.c/hub-ctrl -h 0 -P 2 -p 1
-sleep 60
-/usr/bin/sakis3g --sudo "connect" APN="Safaricom" APN_USER="saf" APN_PASS="data" USBINTERFACE="0" OTHER="USBMODEM" USBMODEM="12d1:1001"

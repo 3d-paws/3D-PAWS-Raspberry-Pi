@@ -1,1 +1,0 @@
-sudo sakis3g connect --nostorage --pppd CUSTOM_APN="epc.tmobile.com" APN_USER="" APN_PASS="" USBINTERFACE="0" USBDRIVER="option" OTHER="USBMODEM" USBMODEM="12d1:1506"

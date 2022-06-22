@@ -1,3 +1,0 @@
-connect ftp://ftp.rap.ucar.edu
-## Turn this on and change 3D_PAWS_New to a unique identifier for your station
-#mirror -R --newer-than=now-7days /home/pi/3d-paws/data/ /incoming/irap/pkucera/weather_stations/3D_PAWS_New/
