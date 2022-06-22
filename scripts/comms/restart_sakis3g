@@ -1,0 +1,11 @@
+#!/bin/bash
+
+service=pppd
+
+if(( $(ps -ef | grep -v grep | grep $service | wc -l) > 0))
+then
+echo "$service is running"
+else
+/usr/sbin/service networking restart
+sakis3g --sudo connect CUSTOM_APN="epc.tmobile.com" APN_USER="APN_USER=" APN_PASS="APN_PASS=" USBINTERFACE="0" OTHER="USBMODEM" USBMODEM="12d1:1506"
+fi

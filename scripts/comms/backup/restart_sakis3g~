@@ -1,0 +1,11 @@
+#!/bin/bash
+
+service=pppd
+
+if(( $(ps -ef | grep -v grep | grep $service | wc -l) > 0))
+then
+echo "$service is running"
+else
+/usr/sbin/service networking restart
+/usr/bin/sakis3g connect APN="Safaricom" APN_USER="saf" APN_PASS="data" USBINTERFACE="0" OTHER="USBMODEM" USBMODEM="12d1:1001"
+fi

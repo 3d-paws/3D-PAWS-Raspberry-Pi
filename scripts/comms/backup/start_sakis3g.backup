@@ -1,0 +1,1 @@
+/usr/bin/sakis3g connect CUSTOM_APN="epc.tmobile.com" APN_USER="APN_USER=" APN_PASS="APN_PASS=" USBINTERFACE="0"
