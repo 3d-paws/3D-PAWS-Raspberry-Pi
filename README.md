@@ -4,19 +4,19 @@
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install 3D-PAWS. First, check which syntax is correct for your system by typing the following in the command line:
+Use [github](https://github.com/) to install 3D-PAWS. Install git with the following in the command line:
 
 ```bash
-python --version
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install git
 ```
 
-If the result is version 3 or higher, install using 
+Once that's done, install 3D-PAWS and its dependancies with:
 ```bash
-sudo pip install 3d-paws
-```
-Otherwise, use
-```bash
-sudo pip3 install 3d-paws
+git clone https://github.com/3d-paws/3d-paws
+cd 3d-paws/
+sudo python3 setup.py install
 ```
 
 ## Setup
@@ -41,8 +41,8 @@ Type=Application
 Encoding=UTF-8
 Name=3D-PAWS
 Comment=OpenGL demotool
-Icon=/home/pi/3d_paws/3d_paws_icon.png
-Exec=sudo python3 /home/pi/3d_paws/scripts/main.py
+Icon=/home/pi/3d-paws/3d_paws_icon.png
+Exec=sudo python3 /home/pi/3d-paws/scripts/main.py
 Terminal=false
 Categories=Graphics
 ```
@@ -50,8 +50,6 @@ Categories=Graphics
 ### Step 3 - Install Teamviewer
 In order for us to debug future issues, we recommend installing [Teamviewer](https://www.teamviewer.com/en-us/?utm_source=google&utm_medium=cpc&utm_campaign=us|b|pr|19|jul|Brand-TeamViewer-Exact|free|t0|0|dl|g&utm_content=TeamViewer_Exact&utm_term=teamviewer&gclid=CjwKCAjwqauVBhBGEiwAXOepkaUDmfKPy7NqY8tIiuxn6tcV3Q-74NOweONXAebWNg_R0GERunuaYxoCKhkQAvD_BwE). This can be done on their site, or by executing the following commands:
 ```bash
-sudo apt-get update
-sudo apt-get upgrade
 wget https://download.teamviewer.com/download/linux/teamviewer-host_armhf.deb
 sudo dpkg -i teamviewer-host_armhf.deb
 sudo apt --fix-broken install
