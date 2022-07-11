@@ -8,7 +8,7 @@ Use [github](https://github.com/) to install 3D-PAWS. Install git with the follo
 
 ```bash
 cd /home/pi/
-git clone https://github.com/3d-paws/3d-paws
+sudo git clone https://github.com/3d-paws/3d-paws
 cd 3d-paws/
 sudo python3 setup.py install
 ```
@@ -36,7 +36,7 @@ In either case, the software will run without any changes made during this step.
 
 ## Usage
 You can either launch the GUI from the desktop by double clicking the icon, or from the terminal.
-```python
+```bash
 cd /home/pi/3d-paws/scripts
 sudo python3 main.py
 ```
@@ -45,6 +45,7 @@ If for some reason you don't have a desktop shortcut, you can make one. First, i
 
 Then right click the desktop, and make a file called 3d-paws.desktop
 Open it, and paste the following in:
+```bash
 [Desktop Entry]
 Version=1.1
 Type=Application
@@ -55,10 +56,11 @@ Icon=/home/pi/3d-paws/3d-paws-icon.png
 Exec=sudo python3 /home/pi/3d-paws/scripts/main.py
 Terminal=false
 Categories=Graphics
+```
 
 ## Updates
-To update the software, you'll need to delete the 3d-paws/ folder and reclone it by following the below steps. This will NOT change your variables.txt file.
-```python
+To update the software, you'll need to delete the 3d-paws/ folder and reclone it by following the below steps. This will NOT change your variables.txt file, so you don't have to worry about resetting your variables.
+```bash
 cd /home/pi/
 sudo rm -rf 3d-paws
 git clone https://github.com/3d-paws/3d-paws
