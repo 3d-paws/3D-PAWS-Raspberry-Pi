@@ -8,7 +8,6 @@
 
 import wx, helper_functions
 from crontab import CronTab
-from helper_functions import root
 
 class ChangeChords(wx.Dialog):
     def __init__(self, parent):

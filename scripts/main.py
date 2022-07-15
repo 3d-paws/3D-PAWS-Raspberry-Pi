@@ -11,7 +11,8 @@ from crontab import CronTab
 import wx
 import wx.lib.scrolledpanel as scrolled
 import helper_functions, barometric_menu, interval_menu, chords_menu, data_modal, os
-from helper_functions import root
+logs = '/home/pi/3d-paws/logs/'
+scripts = '/home/pi/3d-paws/scripts/'
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
@@ -219,17 +220,17 @@ class Window(wx.Frame):
                     job.enable()
                     self.active_sensors.append(sensor)
                     if sensor == "Remote Stations":
-                        f = open(root + '/logs/remote_stations_check',"w+")
+                        f = open(logs + 'remote_stations_check',"w+")
                         f.close()
-                        os.system('sudo ' + root + 'scripts/comms/rf95/remote_stations_server -d') #start the remote bucket daemon
+                        os.system('sudo ' + scripts + 'comms/rf95/remote_stations_server -d') #start the remote bucket daemon
                         self.remote_station = True                 
                 else:
                     button.SetLabel("Off")
                     job.enable(False)
                     self.active_sensors.remove(sensor)
                     if sensor == "Remote Stations":
-                        if os.path.exists(root + '/logs/remote_stations_check'):
-                            os.remove(root + '/logs/remote_stations_check')
+                        if os.path.exists(logs + 'remote_stations_check'):
+                            os.remove(logs + 'remote_stations_check')
                         os.system('sudo pkill -f remote_stations_server') #stop the remote bucket daemon
                         self.remote_station = False
                 cron.write()
@@ -251,9 +252,9 @@ class Window(wx.Frame):
             if sensor not in self.active_sensors:
                 self.active_sensors.append(sensor)
                 if sensor == "Remote Stations":
-                    f = open(root + '/logs/remote_stations_check',"w+")
+                    f = open(logs + 'remote_stations_check',"w+")
                     f.close()
-                    os.system('sudo ' + root + 'scripts/comms/rf95/remote_stations_server -d')
+                    os.system('sudo ' + scripts + 'comms/rf95/remote_stations_server -d')
                 self.RestartCheck(sensor)
         cron.write()
         self.remote_station = True
@@ -273,8 +274,8 @@ class Window(wx.Frame):
             if sensor in self.active_sensors:
                 self.active_sensors.remove(sensor)
                 if sensor == "Remote Stations":
-                    if os.path.exists(root + '/logs/remote_stations_check'):
-                        os.remove(root + '/logs/remote_stations_check')
+                    if os.path.exists(logs + 'remote_stations_check'):
+                        os.remove(logs + 'remote_stations_check')
                     os.system('sudo pkill -f remote_stations_server')
                 self.RestartCheck(sensor)
         cron.write()

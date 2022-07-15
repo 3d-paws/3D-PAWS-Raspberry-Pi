@@ -7,7 +7,6 @@
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import wx, helper_functions
-from helper_functions import root
 
 class ChangeBarometric(wx.Dialog):
     def __init__(self, parent):

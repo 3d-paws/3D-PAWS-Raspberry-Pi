@@ -8,8 +8,6 @@
 
 import requests, datetime, re, sys, os
 
-root = "/home/pi/3d-paws/"
-
 # Get script arguments
 def getArguments():
 	# Open the variables file, or make it if it doesn't exist
@@ -105,7 +103,7 @@ def output(show, line, sensor, remote = None):
 
 
 def create_filename(folder, file):
-	path = root + folder
+	path = "/home/pi/" + folder
 	if not os.path.exists(path):
 		os.makedirs(path)
 	filename = path + file
@@ -118,7 +116,7 @@ def reportCHORDS(chords_toggle, current_minute, interval, url):
 	if current_minute % interval == 0 and chords_toggle == "true": 
 		try:	
 			requests.get(url=url)
-			#output(True, url, root + 'logs/chords_testing.log')
+			#output(True, url, "/home/pi/3d-paws/logs/chords_testing.log")
 		except:
 			pass
 
@@ -130,8 +128,7 @@ def handleError(e, sensor):
 	message = e.args[0]
 	error = error_formatting % (now.year, now.month, now.day, now.hour, now.minute, message)
 	print(error)
-	#filename = root + 'logs/' + sensor + '.log'
-	filename = create_filename('logs/', sensor + '.log')
+	filename = create_filename('3d-paws/logs/', sensor + '.log')
 	line = error + '\n'
 	file = open(filename, 'w')
 	file.write(line)

@@ -7,7 +7,6 @@
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import datetime, os, helper_functions
-from helper_functions import root
 
 
 # Get script arguments
@@ -21,8 +20,8 @@ test_toggle = arguments[6]
 now = datetime.datetime.utcnow()
 
 
-def checkFile(root, sensor):
-    location = root + "data/temporary/" + sensor + ".tmp"
+def checkFile(sensor):
+    location = "/home/pi/data/temporary/" + sensor + ".tmp"
     if os.path.exists(location):
         f = open(location, "r+")
         info = f.readline().split()
@@ -42,38 +41,38 @@ if now.minute % record_interval == 0 and test_toggle == "false":
     #data = [bmp_temp, bmp_pressure, bmp_slp, bmp_altitude, bme_temp, bme_pressure, bme_slp, bme_altitude, bme_humidity, htu21d_temp, htu21d_humidity, mcp9808, rain, si1145_vis, si1145_ir, si1145_uv, wind_direction, wind_speed]
     data = [-999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99, -999.99]
 
-    bmp = checkFile(root, "bmp")
+    bmp = checkFile("bmp")
     if bmp:
         data[0] = float(bmp[5])
         data[1] = float(bmp[6])
         data[2] = float(bmp[7])
         data[3] = float(bmp[8])
-    bme = checkFile(root, "bme")
+    bme = checkFile("bme")
     if bme:
         data[4] = float(bme[5])
         data[5] = float(bme[6])
         data[6] = float(bme[7])
         data[7] = float(bme[8])
         data[8] = float(bme[9])
-    htu21d = checkFile(root, "htu21d")
+    htu21d = checkFile("htu21d")
     if htu21d:
         data[9] = float(htu21d[5])
         data[10] = float(htu21d[6])
-    mcp9808 = checkFile(root, "mcp9808")
+    mcp9808 = checkFile("mcp9808")
     if mcp9808:
         data[11] = float(mcp9808[5])
-    rain = checkFile(root, "rain")
+    rain = checkFile("rain")
     if rain:
         data[12] = float(rain[5])
-    si1145 = checkFile(root, "si1145")
+    si1145 = checkFile("si1145")
     if si1145:
         data[13] = float(si1145[5])
         data[14] = float(si1145[6])
         data[15] = float(si1145[7])
-    wind_direction = checkFile(root, "wind_direction")
+    wind_direction = checkFile("wind_direction")
     if wind_direction:
         data[16] = float(wind_direction[6])
-    wind_speed = checkFile(root, "wind_speed")
+    wind_speed = checkFile("wind_speed")
     if wind_speed:
         data[17] = float(wind_speed[5])
 

@@ -8,7 +8,6 @@
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import helper_functions, datetime, os
-from helper_functions import root
 
 #set to true if the antenna needs to be restarted
 restart = False 
@@ -22,7 +21,7 @@ chords_id = arguments[3]
 chords_link = arguments[4]
 
 # Get data
-file = open(root + 'data/remote_stations/remote_stations_buffer.log', 'r+')
+file = open('/home/pi/data/remote_stations/remote_stations_buffer.log', 'r+')
 data = file.readlines()
 file.truncate(0) #clear file
 file.close() 
@@ -307,7 +306,7 @@ if len(data) > 0:
 
 #if there are no recordings, or we've noticed a problem with the antenna, restart the script
 if len(data) == 0 or restart:
-    f = open(root + '/logs/remote_stations_check',"w+")
+    f = open('/home/pi/3d-paws/logs/remote_stations_check',"w+")
     f.close()
     os.system('sudo pkill -f remote_stations_server')
-    os.system('sudo ' + root + 'scripts/comms/rf95/remote_stations_server -d')
+    os.system('sudo /home/pi/3d-paws/scripts/comms/rf95/remote_stations_server -d')

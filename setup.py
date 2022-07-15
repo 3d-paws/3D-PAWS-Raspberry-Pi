@@ -1,10 +1,7 @@
 from setuptools import setup, find_packages
 
 VERSION = '3.0.0' 
-DESCRIPTION = 'A python library used to run a 3D-PAWS weather station.'
-
-with open(file="README.md", mode="r") as readme:
-    LONG_DESCRIPTION = readme.read()
+DESCRIPTION = 'A python library used to run a 3D-PAWS weather station. For more information, go to https://github.com/3d-paws/3d-paws'
 
 setup(
         name="3d-paws", 
@@ -12,8 +9,6 @@ setup(
         author="Joey Rener",
         author_email="jrener@ucar.edu",
         description=DESCRIPTION,
-        long_description=LONG_DESCRIPTION,
-        long_description_content_type = "text/markdown",
         url = "https://www.icdp.ucar.edu/core-programs-1/3dpaws/",
 
         packages=find_packages(

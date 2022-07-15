@@ -11,7 +11,6 @@
 
 import os
 
-root = "/home/pi/3d-paws/"
-if os.path.exists(root + '/logs/remote_stations_check'):
+if os.path.exists('/home/pi/3d-paws/logs/remote_stations_check'):
     os.system('sudo pkill -f remote_stations_server') #stop the remote station daemon (to prevent duplicates)
-    os.system('sudo ' + root + 'scripts/comms/rf95/remote_stations_server -d') #start the remote station daemon
+    os.system('sudo /home/pi/3d-paws/scripts/comms/rf95/remote_stations_server -d') #start the remote station daemon
