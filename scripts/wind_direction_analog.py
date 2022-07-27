@@ -109,9 +109,8 @@ def run(test):
 		
 		except Exception as e:
 			helper_functions.handleError(e, "wind_direction")
+			GPIO.cleanup()
 			pass
-
-	GPIO.cleanup()
 
 
 #run the function as a test if this script is ran from the command line

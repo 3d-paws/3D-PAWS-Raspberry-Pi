@@ -3,29 +3,33 @@
 3D-PAWS is a Python3 library used to run the various sensors of a 3D-PAWS station. This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, and SS451A. Note that you need to install this software on a raspberry pi in order for it to work.
 
 ## Installation
-### Step 1 - Download the software
-Use [github](https://github.com/) to install 3D-PAWS. Install git with the following in the command line:
+If you're using our OS image (contact Paul Kucera at pkucera@ucar.edu for more information) then all you need to do in order to update to the latest software version is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
+
+```bash
+update-3dpaws.py
+```
+
+Once that's done, move on Set Variables. If you want to update manually, continue on to Step 1. 
+
+### Manual Step 1 - Download the software
+You'll need to download and unpack the software by using the following commands in order:
 
 ```bash
 cd /home/pi/
+sudo apt-get install git
 sudo git clone https://github.com/3d-paws/3d-paws
 cd 3d-paws/
 sudo python3 setup.py install
 ```
 
-Note: if you're not using one of our images, you might need to install git before running the above commands. If that's the case, you can do so with:
-```bash
-sudo apt-get install git
-```
-
-### Step 2 - Setup the Environment
+### Manual Step 2 - Setup the Environment
 Once the 3D-PAWS library is installed, run the following commands:
 ```bash
 sudo python3 environment.py
 ```
 Note: this step will delete anything already in the cron (this is to ensure no issues occur when updating the 3D-PAWS software). If the pi is only used for 3d-paws (which is recommended) then this won't be an issue. 
 
-### Step 3 - Set Variables
+## Set Variables
 You'll want to change your station vairables in order for accurate readings, specific recording intervals, and to activate CHORDS. There are two ways of doing this: 
 
 The first is the recommended way. Launch the GUI (it has a shortcut on the desktop). In the GUI, there is a Settings button in the top left. It contains 3 options. Click through each of them, changing any variables you need to. Descriptions for these variables are noted in the GUI.  
@@ -59,7 +63,13 @@ Categories=Graphics
 ```
 
 ## Updates
-To update the software, you'll need to delete the 3d-paws/ folder and reclone it by following the below steps. This will NOT change your variables.txt file, so you don't have to worry about resetting your variables.
+If using one of our system images, all you need to do to update the software is open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
+
+```bash
+update-3dpaws.py
+```
+
+To update the software manually, follow the below steps. This will NOT change your variables.txt file, so you don't have to worry about resetting your variables.
 ```bash
 cd /home/pi/
 sudo rm -rf 3d-paws

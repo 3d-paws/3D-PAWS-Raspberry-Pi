@@ -14,9 +14,22 @@ cron = CronTab(user='root')
 print("Setting up cron...")
 cron.remove_all()
 
+#basic functionality crons
 report = cron.new(command='python3 /home/pi/3d-paws/scripts/report.py >> /tmp/report.log 2>&1')
 report.minute.every(1)
 
+update = cron.new(command='python3 /home/pi/update-3d-paws.py >> /tmp/update-3d-paws.log 2>&1')
+update.setall('0 0 * * 1')
+
+relay = cron.new(command='python3 /home/pi/relay.py >> /tmp/relay.log 2>&1')
+relay.setall('0 0 * * *')
+update.enable(False) #TODO remove
+
+link = cron.new(command='ln -s /dev/i2c-1 /dev/i2c-0')
+link.every_reboot()
+link.set_comment("Resets device link")
+
+#sensor crons
 bm = cron.new(command='python3 /home/pi/3d-paws/scripts/bmp_bme.py >> /tmp/bmp.log 2>&1')
 bm.minute.every(1)
 bm.set_comment("BMP/BME")
@@ -52,11 +65,7 @@ wind_spd.every_reboot()
 wind_spd.set_comment("Wind Speed")
 wind_spd.enable(False)
 
-
-link = cron.new(command='ln -s /dev/i2c-1 /dev/i2c-0')
-link.every_reboot()
-link.set_comment("Resets device link")
-
+#backup cron
 backup = cron.new(command='lftp -f /home/pi/3d-paws/scripts/comms/mirror-to-ral-ftp >> /tmp/mirror-to-ral-ftp.log 2>&1')
 backup.minute.every(5)
 backup.set_comment("RAL-FTP")
@@ -64,7 +73,7 @@ backup.enable(False)
 
 
 cron.write()
-print("Done! Printing results now...")
+print("Cron successfully updated. Printing results now...")
 print()
 cron = CronTab(user='root')
 for job in cron:
@@ -74,10 +83,12 @@ for job in cron:
 
 print("Checking for variables.txt...")
 variable_path = "/home/pi/Desktop/variables.txt" 
-if not os.path.exists(variable_path):
+if os.path.exists(variable_path):
+    print("variables.txt found.")
+else:
     print("Creating variables.txt...")
     with open(variable_path, 'w') as file:
         file.write("1,1,false,0,3d.chordsrt.com,1013.25,false,100000.0")
     os.chmod(variable_path, 0o777)
-print("Done! Envionment has been successfully setup.")
+    print("Envionment successfully updated.")
 print()

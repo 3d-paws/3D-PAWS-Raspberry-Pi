@@ -82,7 +82,5 @@ while True:
 
 	except Exception as e:
 		helper_functions.handleError(e, "rain")
+		GPIO.cleanup()
 		pass
-		
-GPIO.cleanup()
-
