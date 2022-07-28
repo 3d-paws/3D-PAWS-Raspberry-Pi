@@ -6,13 +6,13 @@
 If you're using our OS image (contact Paul Kucera at pkucera@ucar.edu for more information) then all you need to do in order to update to the latest software version is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
-update-3dpaws.py
+update-3d-paws.py
 ```
 
 Once that's done, move on Set Variables. If you want to update manually, continue on to Step 1. 
 
 ### Manual Step 1 - Download the software
-You'll need to download and unpack the software by using the following commands in order:
+You'll need to download and unpack the software by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
 
 ```bash
 cd /home/pi/
@@ -62,11 +62,11 @@ Terminal=false
 Categories=Graphics
 ```
 
-## Updates
+## Update
 If using one of our system images, all you need to do to update the software is open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
 
 ```bash
-update-3dpaws.py
+update-3d-paws.py
 ```
 
 To update the software manually, follow the below steps. This will NOT change your variables.txt file, so you don't have to worry about resetting your variables.
