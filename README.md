@@ -9,7 +9,7 @@ If you're using our OS image (contact Paul Kucera at pkucera@ucar.edu for more i
 update-3d-paws.py
 ```
 
-Once that's done, move on Set Variables. If you want to update manually, continue on to Step 1. 
+Once that's done, move on Set Variables. If you want to update manually, continue on to Manual Step 1. 
 
 ### Manual Step 1 - Download the software
 You'll need to download and unpack the software by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.

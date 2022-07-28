@@ -10,6 +10,7 @@
 import os
 from crontab import CronTab
 cron = CronTab(user='root')
+variables = "1,1,false,0,3d.chordsrt.com,1013.25,false,100000.0" #record_interval, chords_interval, chords_toggle, chords_id, link, pressue_level, test_toggle, altitude
 
 print("Checking cron...")
 active = []
@@ -21,11 +22,14 @@ print("Updating cron...")
 cron.remove_all()
 
 #basic functionality crons
-report = cron.new(command='python3 /home/pi/3d-paws/scripts/report.py >> /tmp/report.log 2>&1')
-report.minute.every(1)
-
 update = cron.new(command='python3 /home/pi/update-3d-paws.py >> /tmp/update-3d-paws.log 2>&1')
 update.setall('0 0 * * 1')
+
+update2 = cron.new(command='python3 /home/pi/3d-paws/scripts/update_helper.py >> /tmp/update_helper.log 2>&1')
+update2.every_reboot()
+
+report = cron.new(command='python3 /home/pi/3d-paws/scripts/report.py >> /tmp/report.log 2>&1')
+report.minute.every(1)
 
 relay = cron.new(command='python3 /home/pi/relay.py >> /tmp/relay.log 2>&1')
 relay.setall('0 0 * * *')
@@ -95,7 +99,7 @@ if os.path.exists(variable_path):
 else:
     print("Creating variables.txt...")
     with open(variable_path, 'w') as file:
-        file.write("1,1,false,0,3d.chordsrt.com,1013.25,false,100000.0")
+        file.write(variables)
     os.chmod(variable_path, 0o777)
     print("Envionment successfully updated.")
 print()
