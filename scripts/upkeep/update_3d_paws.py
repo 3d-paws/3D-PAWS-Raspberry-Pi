@@ -21,11 +21,11 @@ def connect():
         urllib.request.urlopen('http://google.com')
         print("Internet found.")
         print()
-        if not os.path.exists("time_check.txt"):
+        if not os.path.exists("/home/pi/time_check.txt"):
             print("Setting the Real Time Clock...")
             result = os.system("sudo hwclock -w")
             if result == 0:
-                with open("time_check.txt", 'w') as file:
+                with open("/home/pi/time_check.txt", 'w') as file:
                     file.write("RTC successfully set. Do not delete this file unless you need to reset the RTC.")
                 print("RTC successfully set.")
             else:
@@ -37,18 +37,18 @@ def connect():
 
 
 def cleanup(situation): 
-    if os.path.exists("3d_paws"):
-        if os.path.exists("3d_paws_old"):
+    if os.path.exists("/home/pi/3d_paws"):
+        if os.path.exists("/home/pi/3d_paws_old"):
             print("Finalizing changes...")
-            run_command("sudo rm -rf 3d_paws_old", situation)
+            run_command("sudo rm -rf /home/pi/3d_paws_old", situation)
         print("Update complete!")
         print("Restarting...")
         time.sleep(4)
         os.system("sudo reboot")
     else:
-        if os.path.exists("3d_paws_old"):
+        if os.path.exists("/home/pi/3d_paws_old"):
             print("Rolling back changes...")
-            run_command("sudo mv 3d_paws_old 3d_paws", situation)
+            run_command("sudo mv /home/pi/3d_paws_old /home/pi/3d_paws", situation)
 
 
 #runs a command in terminal and checks for issues; extra: 1 = git error, 2 = error while fixing error
@@ -81,24 +81,24 @@ if not connect():
     sys.exit()
 #download
 print("Downloading 3D PAWS software package...")
-if os.path.exists("3d_paws"):
-    run_command("sudo mv 3d_paws 3d_paws_old")
+if os.path.exists("/home/pi/3d_paws"):
+    run_command("sudo mv /home/pi/3d_paws /home/pi/3d_paws_old")
 run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
 print("Download complete.")
 print()
 #permissions
 print("Updating permissions...")
-run_command("sudo chmod -R a+rwx 3d_paws/")
+run_command("sudo chmod -R a+rwx /home/pi/3d_paws/")
 print("Permissions successfully updated.")
 print()
 #install
 print("Installing dependencies (this could take some time)...")
-run_command("sudo python3 3d_paws/setup.py install")
+run_command("sudo python3 /home/pi/3d_paws/setup.py install")
 print("Dependencies successfully installed.")
 print()
 #cron
 print("Updating cron...")
-run_command("sudo python3 3d_paws/environment.py")
+run_command("sudo python3 /home/pi/3d_paws/environment.py")
 print("Cron successfully updated.")
 print()
 #finish
