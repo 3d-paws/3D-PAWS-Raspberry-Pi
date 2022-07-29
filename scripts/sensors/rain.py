@@ -7,6 +7,8 @@
 # Email: pkucera@ucar.edu and jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import RPi.GPIO as GPIO, busio, board, time, sys, datetime, helper_functions
 
 arguments = helper_functions.getArguments()

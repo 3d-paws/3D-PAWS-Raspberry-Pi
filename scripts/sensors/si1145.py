@@ -18,6 +18,8 @@
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import SI1145.SI1145 as SI1145, helper_functions
 
 try:

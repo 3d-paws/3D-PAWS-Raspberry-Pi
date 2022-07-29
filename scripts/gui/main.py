@@ -7,11 +7,14 @@
 # Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
-from crontab import CronTab 
+logs = '/home/pi/3d_paws/logs/'
+scripts = '/home/pi/3d_paws/scripts/'
+
+import sys
+sys.path.insert(0, scripts)
+from crontab import CronTab
 import wx.lib.scrolledpanel as scrolled
-import wx, helper_functions, barometric_menu, interval_menu, chords_menu, data_modal, os
-logs = '/home/pi/3d-paws/logs/'
-scripts = '/home/pi/3d-paws/scripts/'
+import helper_functions, wx, barometric_menu, interval_menu, chords_menu, data_modal, os
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {

@@ -21,14 +21,12 @@ class ChangeChords(wx.Dialog):
         self.pressure_level = str(inputs[5])
         self.test_toggle = str(inputs[6])
         self.altitude = str(inputs[7])
+        self.ral = 'false'
         cron = CronTab(user='root')
         for job in cron:
-            if job.comment == 'RAL-FTP':
-                status = job.is_enabled()
-                if status:
+            if job.comment == 'RAL FTP':
+                if job.is_enabled():
                     self.ral = 'true'
-                else:
-                    self.ral = 'false'
                 break
         self.InitUI()
         self.SetTitle("CHORDS Menu")
@@ -82,7 +80,9 @@ class ChangeChords(wx.Dialog):
         link_section.Add(self.link_input, flag=wx.TOP, border=2)
         link_section.Add(wx.StaticText(panel, label="/measurements/..."), flag=wx.ALIGN_LEFT|wx.ALL, border=8)
         vbox.Add(link_section, flag=wx.LEFT, border=15)
-        # Add toggle
+
+        """
+        # Add RAL toggle
         toggle_section2 = wx.BoxSizer(wx.HORIZONTAL)
         toggle_section2.Add(wx.StaticText(panel, label="RAL FTP"), flag=wx.ALL, border=10)
         toggle_section2.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
@@ -95,6 +95,8 @@ class ChangeChords(wx.Dialog):
         toggle_section2.Add(self.toggle2, flag=wx.TOP, border=3)
         self.toggle2.Bind(wx.EVT_TOGGLEBUTTON, self.OnRalToggle)
         vbox.Add(toggle_section2, flag=wx.LEFT, border=15)
+        """
+
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.TOP|wx.RIGHT|wx.EXPAND, border=7)
@@ -150,7 +152,7 @@ class ChangeChords(wx.Dialog):
     def OnRalToggle(self, e):
         cron = CronTab(user='root')
         for job in cron:
-            if job.comment == "RAL-FTP":
+            if job.comment == "RAL FTP":
                 if self.ral == "false":
                     self.ral = "true"
                     self.toggle2.SetLabel("On")

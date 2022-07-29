@@ -7,6 +7,8 @@
 # Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import smbus, wind_direction_analog, wind_direction_i2c
 
 try:

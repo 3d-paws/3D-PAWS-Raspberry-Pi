@@ -6,6 +6,8 @@
 # Email: pkucera@ucar.edu and jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import adafruit_mcp9808 as mcp9808, board, busio, helper_functions
 
 with busio.I2C(board.SCL, board.SDA) as i2c:

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Code to update the updater
 # Joseph E. Rener
-# NCAR/RAL
+# UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
 # Copyright (c) 2022 UCAR

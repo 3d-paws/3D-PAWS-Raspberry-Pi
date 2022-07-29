@@ -1,17 +1,18 @@
 #!/usr/bin/python
 # Code to update 3d paws software
 # Joseph E. Rener
-# NCAR/RAL
+# UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 #This file should ALWAYS be placed in /home/pi on new systems. 
 
 #To stop updates: change environement.py so it will turn off the cron for update_3d_paws.py, thus stopping updates on all current stations. Wait for this update to be pushed out before
 #committing the changes that aren't reverse compatable. Change environement.py back before setting up new stations so that they'll still be able to update.
 
-import os, sys, time, urllib.request
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
+import os, time, urllib.request
 
 
 #checks for internet connection

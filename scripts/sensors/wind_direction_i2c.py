@@ -6,6 +6,8 @@
 # Email: jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
+import sys
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import smbus, math, time, datetime, helper_functions
 
 def run(bus, address, test):
