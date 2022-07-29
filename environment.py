@@ -34,7 +34,7 @@ report.minute.every(1)
 relay = cron.new(command='python3 /home/pi/3d_paws/scripts/upkeep/relay.py >> /tmp/relay.log 2>&1')
 relay.setall('0 0 * * *') #Every midnight
 relay.set_comment("relay")
-update.enable(True if "relay" in active else False)
+relay.enable(True if "relay" in active else False)
 
 link = cron.new(command='ln -s /dev/i2c-1 /dev/i2c-0')
 link.every_reboot()

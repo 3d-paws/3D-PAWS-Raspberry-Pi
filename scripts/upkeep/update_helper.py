@@ -12,4 +12,4 @@ import os
 if os.path.exists("/home/pi/update_3d_paws.py"):
     os.system("sudo rm /home/pi/update_3d_paws.py")
 
-os.system("sudo cp update_3d_paws.py /home/pi/update_3d_paws.py")
+os.system("sudo cp /home/pi/3d_paws/scripts/upkeep/update_3d_paws.py /home/pi/update_3d_paws.py")
