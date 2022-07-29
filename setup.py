@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 VERSION = '3.0.0' 
-DESCRIPTION = 'A python library used to run a 3D-PAWS weather station. For more information, go to https://github.com/3d-paws/3d-paws'
+DESCRIPTION = 'A python library used to run a 3D PAWS weather station. For more information, go to https://github.com/3d-paws/3d_paws'
 
 setup(
         name="3d-paws", 
@@ -14,10 +14,6 @@ setup(
         packages=find_packages(
             where='scripts'
         ),
-
-        package_data = {
-            'input' : ['scripts/input.txt']
-        },
 
         install_requires=[
             "Adafruit_Blinka==4.8.1",

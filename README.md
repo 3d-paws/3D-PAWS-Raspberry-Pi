@@ -1,12 +1,12 @@
-# 3D-PAWS
+# 3D PAWS
 
-3D-PAWS is a Python3 library used to run the various sensors of a 3D-PAWS station. This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, and SS451A. Note that you need to install this software on a raspberry pi in order for it to work.
+3D PAWS is a Python3 library used to run the various sensors of a 3D-PAWS station. This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, and SS451A. Note that you need to install this software on a raspberry pi in order for it to work.
 
 ## Installation
 If you're using our OS image (contact Paul Kucera at pkucera@ucar.edu for more information) then all you need to do in order to update to the latest software version is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
-update-3d-paws.py
+update_3d_paws.py
 ```
 
 Once that's done, move on Set Variables. If you want to update manually, continue on to Manual Step 1. 
@@ -17,13 +17,13 @@ You'll need to download and unpack the software by using the following commands 
 ```bash
 cd /home/pi/
 sudo apt-get install git
-sudo git clone https://github.com/3d-paws/3d-paws
-cd 3d-paws/
+sudo git clone https://github.com/3d-paws/3d_paws
+cd 3d_paws/
 sudo python3 setup.py install
 ```
 
 ### Manual Step 2 - Setup the Environment
-Once the 3D-PAWS library is installed, run the following commands:
+Once the 3D PAWS library is installed, run the following commands:
 ```bash
 sudo python3 environment.py
 ```
@@ -41,23 +41,23 @@ In either case, the software will run without any changes made during this step.
 ## Usage
 You can either launch the GUI from the desktop by double clicking the icon, or from the terminal.
 ```bash
-cd /home/pi/3d-paws/scripts
+cd /home/pi/3d_paws/scripts/gui
 sudo python3 main.py
 ```
 
 If for some reason you don't have a desktop shortcut, you can make one. First, in the File manager -> Edit -> Preferences -> General -> "Do not ask option on executable launch"
 
-Then right click the desktop, and make a file called 3d-paws.desktop
+Then right click the desktop, and make a file called 3d_paws.desktop
 Open it, and paste the following in:
 ```bash
 [Desktop Entry]
 Version=1.1
 Type=Application
 Encoding=UTF-8
-Name=3D-PAWS
+Name=3D_PAWS
 Comment=3d paws gui
-Icon=/home/pi/3d-paws/3d-paws-icon.png
-Exec=sudo python3 /home/pi/3d-paws/scripts/main.py
+Icon=/home/pi/3d_paws/3d_paws_icon.png
+Exec=sudo python3 /home/pi/3d_paws/scripts/gui/main.py
 Terminal=false
 Categories=Graphics
 ```
@@ -66,15 +66,15 @@ Categories=Graphics
 If using one of our system images, all you need to do to update the software is open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
 
 ```bash
-update-3d-paws.py
+update_3d_paws.py
 ```
 
 To update the software manually, follow the below steps. This will NOT change your variables.txt file, so you don't have to worry about resetting your variables.
 ```bash
 cd /home/pi/
-sudo rm -rf 3d-paws
-git clone https://github.com/3d-paws/3d-paws
-cd 3d-paws/
+sudo rm -rf 3d_paws
+git clone https://github.com/3d-paws/3d_paws
+cd 3d_paws/
 sudo python3 setup.py install
 sudo python3 environment.py
 ```

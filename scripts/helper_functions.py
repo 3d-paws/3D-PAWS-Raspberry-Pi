@@ -114,9 +114,9 @@ def create_filename(folder, file):
 def reportCHORDS(chords_toggle, current_minute, interval, url):
     # Report every [interval] minutes by checking if the remainder of the current time divided by the interval is 0
 	if current_minute % interval == 0 and chords_toggle == "true": 
-		try:	
+		try:
 			requests.get(url=url)
-			#output(True, url, "/home/pi/3d-paws/logs/chords_testing.log")
+			#output(True, url, "/home/pi/3d_paws/logs/chords_testing.log")
 		except:
 			pass
 
@@ -128,7 +128,7 @@ def handleError(e, sensor):
 	message = e.args[0]
 	error = error_formatting % (now.year, now.month, now.day, now.hour, now.minute, message)
 	print(error)
-	filename = create_filename('3d-paws/logs/', sensor + '.log')
+	filename = create_filename('3d_paws/logs/', sensor + '.log')
 	line = error + '\n'
 	file = open(filename, 'w')
 	file.write(line)
