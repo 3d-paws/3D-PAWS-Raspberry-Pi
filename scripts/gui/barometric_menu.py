@@ -21,7 +21,7 @@ class ChangeBarometric(wx.Dialog):
         self.test_toggle = str(inputs[6])
         self.altitude = str(inputs[7])
         self.InitUI()
-        self.SetTitle("Pressure Level Menu")
+        self.SetTitle("Barometric Values Menu")
 
 
     def InitUI(self):
@@ -38,8 +38,6 @@ class ChangeBarometric(wx.Dialog):
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.BOTTOM|wx.RIGHT|wx.EXPAND, border=7)
-
-
         # Add pressure level input
         pl_section = wx.BoxSizer(wx.HORIZONTAL)
         pl_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=-10)
@@ -57,8 +55,6 @@ class ChangeBarometric(wx.Dialog):
         self.altitude_input.SetValue(self.altitude)
         at_section.Add(self.altitude_input, flag=wx.ALIGN_CENTER|wx.ALL, border=8)
         vbox.Add(at_section, flag=wx.LEFT, border=75)
-
-
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.TOP|wx.RIGHT|wx.EXPAND, border=7)

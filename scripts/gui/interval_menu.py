@@ -7,6 +7,7 @@
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 import wx, helper_functions
+from crontab import CronTab
 
 class ChangeInterval(wx.Dialog):
     def __init__(self, parent):
@@ -20,6 +21,13 @@ class ChangeInterval(wx.Dialog):
         self.pressure_level = str(inputs[5])
         self.test_toggle = str(inputs[6])
         self.altitude = str(inputs[7])
+        self.relay_toggle = 'false'
+        cron = CronTab(user='root')
+        for job in cron:
+            if job.comment == 'relay':
+                if job.is_enabled():
+                    self.relay_toggle = 'true'
+                break
         self.InitUI()
         self.SetTitle("Interval Menu")
 
@@ -28,17 +36,30 @@ class ChangeInterval(wx.Dialog):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
         # Add explanation text
-        vbox.Add(wx.StaticText(panel, label="Here, you can change the intervals in which the sensors"), flag=wx.LEFT|wx.TOP|wx.RIGHT, border=15)
-        vbox.Add(wx.StaticText(panel, label="record locally and to CHORDS. They should be between 1"), flag=wx.LEFT|wx.RIGHT, border=15)
-        vbox.Add(wx.StaticText(panel, label="and 60 minutes, and CHORDS interval can't be less than"), flag=wx.LEFT|wx.RIGHT, border=15)
-        vbox.Add(wx.StaticText(panel, label="Record Interval. Test mode changes this to seconds."), flag=wx.LEFT|wx.BOTTOM|wx.RIGHT, border=15)
+        vbox.Add(wx.StaticText(panel, label="Here you can change how often sensors record locally"), flag=wx.LEFT|wx.TOP|wx.RIGHT, border=15)
+        vbox.Add(wx.StaticText(panel, label="and to CHORDS. They should be between 1 and 60 minutes."), flag=wx.LEFT|wx.RIGHT, border=15)
+        vbox.Add(wx.StaticText(panel, label="Test mode changes this from minutes to seconds."), flag=wx.LEFT|wx.BOTTOM|wx.RIGHT, border=15)
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.BOTTOM|wx.RIGHT|wx.EXPAND, border=7)
+        # Add Relay option
+        relay_section = wx.BoxSizer(wx.HORIZONTAL)
+        relay_section.Add(wx.StaticText(panel, label="Relay"), flag=wx.ALL, border=10)
+        relay_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=78)
+        self.relay = wx.ToggleButton(panel, label="")
+        self.relay.SetToolTip("Turns on the relay to cut i2c power daily.") 
+        if self.relay_toggle.lower() == "true":
+            self.relay.SetLabel("On")
+            self.relay.SetValue(True)
+        else:
+            self.relay.SetLabel("Off")
+        relay_section.Add(self.relay, flag=wx.ALIGN_CENTER|wx.ALL, border=8)
+        self.relay.Bind(wx.EVT_TOGGLEBUTTON, self.OnRelayToggle)
+        vbox.Add(relay_section, flag=wx.LEFT, border=75)
         # Add Test Mode option
         test_section = wx.BoxSizer(wx.HORIZONTAL)
-        test_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=45)
         test_section.Add(wx.StaticText(panel, label="Test Mode"), flag=wx.ALL, border=10)
+        test_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=45)
         self.toggle = wx.ToggleButton(panel, label="")
         self.toggle.SetToolTip("Test mode changes Record Interval to seconds and deactivates CHORDS.") 
         if self.test_toggle.lower() == "true":
@@ -51,8 +72,9 @@ class ChangeInterval(wx.Dialog):
         vbox.Add(test_section, flag=wx.LEFT, border=75)
         # Add RECORD input
         record_section = wx.BoxSizer(wx.HORIZONTAL)
-        record_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
         record_section.Add(wx.StaticText(panel, label="Record Interval"), flag=wx.ALL, border=10)
+        record_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=13)
+        record_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=6)
         self.record_interval = wx.SpinCtrl(panel, value=self.record_interval, min=1, max=60)
         record_section.Add(self.record_interval, flag=wx.TOP, border=3)
         vbox.Add(record_section, flag=wx.LEFT, border=75)
@@ -81,6 +103,15 @@ class ChangeInterval(wx.Dialog):
         vbox.Fit(self)
 
 
+    def OnRelayToggle(self, e):
+        if self.relay_toggle == "false":
+            self.relay_toggle = "true"
+            self.relay.SetLabel("On")
+        else:
+            self.relay_toggle = "false"
+            self.relay.SetLabel("Off")
+
+
     def OnTestToggle(self, e):
         if self.test_toggle == "false":
             self.test_toggle = "true"
@@ -102,6 +133,15 @@ class ChangeInterval(wx.Dialog):
             record_interval_final = chords_interval_final
         with open("/home/pi/Desktop/variables.txt", 'w') as file:
             file.write(str(record_interval_final) + "," + str(chords_interval_final) + "," + self.chords_toggle + "," + self.chords_id + "," + self.chords_link + "," + self.pressure_level + "," + self.test_toggle + "," + str(self.altitude))
+        cron = CronTab(user='root')
+        for job in cron:
+            if job.comment == "relay":
+                if self.relay_toggle == "true":
+                    job.enable()              
+                else:
+                    job.enable(False)
+                cron.write()
+                break
         self.Destroy()
 
 

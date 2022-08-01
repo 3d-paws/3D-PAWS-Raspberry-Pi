@@ -15,21 +15,21 @@ class ChangeChords(wx.Dialog):
         inputs = helper_functions.getArguments()
         self.record_interval = str(inputs[0])
         self.chords_interval = str(inputs[1])
-        self.chords_toggle = str(inputs[2])
         self.chords_id = str(inputs[3])
+        self.chords_toggle = str(inputs[2])
         self.chords_link = str(inputs[4])
         self.pressure_level = str(inputs[5])
         self.test_toggle = str(inputs[6])
         self.altitude = str(inputs[7])
-        self.ral = 'false'
+        self.backup_toggle = 'false'
         cron = CronTab(user='root')
         for job in cron:
             if job.comment == 'RAL FTP':
                 if job.is_enabled():
-                    self.ral = 'true'
+                    self.backup_toggle = 'true'
                 break
         self.InitUI()
-        self.SetTitle("CHORDS Menu")
+        self.SetTitle("Backup Menu")
 
 
     def InitUI(self):
@@ -47,10 +47,21 @@ class ChangeChords(wx.Dialog):
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.BOTTOM|wx.RIGHT|wx.EXPAND, border=7)
-        # Add toggle
+        # Add ID input
+        id_section = wx.BoxSizer(wx.HORIZONTAL)
+        id_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=60)
+        id_section.Add(wx.StaticText(panel, label="Station ID"), flag=wx.ALIGN_LEFT|wx.ALL, border=10)
+        id_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=35)
+        self.id_input = wx.TextCtrl(panel, -1, style=wx.ALIGN_LEFT)
+        self.Bind(wx.EVT_TEXT, self.OnEdit, self.id_input)
+        self.id_input.SetValue(self.chords_id)
+        id_section.Add(self.id_input, flag=wx.TOP, border=2)
+        vbox.Add(id_section, flag=wx.LEFT, border=15)
+        # Add chords toggle
         toggle_section = wx.BoxSizer(wx.HORIZONTAL)
+        toggle_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=60)
         toggle_section.Add(wx.StaticText(panel, label="CHORDS"), flag=wx.ALL, border=10)
-        toggle_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
+        toggle_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=42)
         self.toggle = wx.ToggleButton(panel, label="")
         if self.chords_toggle.lower() == "true":
             self.toggle.SetLabel("On")
@@ -59,18 +70,27 @@ class ChangeChords(wx.Dialog):
             self.toggle.SetLabel("Off")
             if self.test_toggle == "true":
                 self.toggle.Enable(False)
-                self.toggle.SetToolTip("CHORDS cannot be turned on while test mode is active; disable test mode in the Change Intervals menu.")
+                self.toggle.SetToolTip("CHORDS cannot be turned on while test mode is active; disable test mode in the Intervals menu.")
         toggle_section.Add(self.toggle, flag=wx.TOP, border=3)
         self.toggle.Bind(wx.EVT_TOGGLEBUTTON, self.OnChordsToggle)
         vbox.Add(toggle_section, flag=wx.LEFT, border=15)
-        # Add ID input
-        id_section = wx.BoxSizer(wx.HORIZONTAL)
-        id_section.Add(wx.StaticText(panel, label="3D-PAWS ID"), flag=wx.ALIGN_LEFT|wx.ALL, border=10)
-        self.id_input = wx.TextCtrl(panel, -1, style=wx.ALIGN_LEFT)
-        self.Bind(wx.EVT_TEXT, self.OnEdit, self.id_input)
-        self.id_input.SetValue(self.chords_id)
-        id_section.Add(self.id_input, flag=wx.TOP, border=2)
-        vbox.Add(id_section, flag=wx.LEFT, border=15)
+        # Add backup toggle
+        backup_section = wx.BoxSizer(wx.HORIZONTAL)
+        backup_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=60)
+        backup_section.Add(wx.StaticText(panel, label="RAL Backup"), flag=wx.ALL, border=10)
+        backup_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
+        self.backup = wx.ToggleButton(panel, label="")
+        if self.backup_toggle.lower() == "true":
+            self.backup.SetLabel("On")
+            self.backup.SetValue(True)
+        else:
+            self.backup.SetLabel("Off")
+            if self.test_toggle == "true":
+                self.backup.Enable(False)
+                self.backup.SetToolTip("RAL backup cannot be turned on while test mode is active; disable test mode in the Intervals menu.")
+        backup_section.Add(self.backup, flag=wx.TOP, border=3)
+        self.backup.Bind(wx.EVT_TOGGLEBUTTON, self.OnBackupToggle)
+        vbox.Add(backup_section, flag=wx.LEFT, border=15)
         # Add link input
         link_section = wx.BoxSizer(wx.HORIZONTAL)
         link_section.Add(wx.StaticText(panel, label="http://"), flag=wx.ALIGN_LEFT|wx.ALL, border=8)
@@ -80,23 +100,6 @@ class ChangeChords(wx.Dialog):
         link_section.Add(self.link_input, flag=wx.TOP, border=2)
         link_section.Add(wx.StaticText(panel, label="/measurements/..."), flag=wx.ALIGN_LEFT|wx.ALL, border=8)
         vbox.Add(link_section, flag=wx.LEFT, border=15)
-
-        """
-        # Add RAL toggle
-        toggle_section2 = wx.BoxSizer(wx.HORIZONTAL)
-        toggle_section2.Add(wx.StaticText(panel, label="RAL FTP"), flag=wx.ALL, border=10)
-        toggle_section2.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
-        self.toggle2 = wx.ToggleButton(panel, label="")
-        if self.ral == "true":
-            self.toggle2.SetLabel("On")
-            self.toggle2.SetValue(True)
-        else:
-            self.toggle2.SetLabel("Off")
-        toggle_section2.Add(self.toggle2, flag=wx.TOP, border=3)
-        self.toggle2.Bind(wx.EVT_TOGGLEBUTTON, self.OnRalToggle)
-        vbox.Add(toggle_section2, flag=wx.LEFT, border=15)
-        """
-
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.TOP|wx.RIGHT|wx.EXPAND, border=7)
@@ -124,6 +127,15 @@ class ChangeChords(wx.Dialog):
             self.toggle.SetLabel("Off")
 
 
+    def OnBackupToggle(self, e):
+        if self.backup_toggle == "false":
+            self.backup_toggle = "true"
+            self.backup.SetLabel("On")      
+        else:
+            self.backup_toggle = "false"
+            self.backup.SetLabel("Off")
+
+
     def OnEdit(self, e):
         value = self.id_input.GetValue()
         try:
@@ -148,26 +160,23 @@ class ChangeChords(wx.Dialog):
             self.alert.SetLabel("Link needs to end in .com, .gov, or .org")
             self.saveButton.Enable(False)
 
-    
-    def OnRalToggle(self, e):
-        cron = CronTab(user='root')
-        for job in cron:
-            if job.comment == "RAL FTP":
-                if self.ral == "false":
-                    self.ral = "true"
-                    self.toggle2.SetLabel("On")
-                    job.enable()              
-                else:
-                    self.ral = "false"
-                    self.toggle2.SetLabel("Off")
-                    job.enable(False)
-                cron.write()
-                break
-
 
     def OnSave(self, e):
         with open("/home/pi/Desktop/variables.txt", 'w') as file:
             file.write(self.record_interval + "," + self.chords_interval + "," + self.chords_toggle + "," + str(int(self.chords_id)) + "," + self.chords_link + "," + self.pressure_level + "," + self.test_toggle + "," + str(self.altitude))
+        with open("/home/pi/ral_backup", 'r+') as file:
+            file.truncate(0)
+            file.write("connect ftp://ftp.rap.ucar.edu")
+            file.write("mirror -R --newer-than=now-7days /home/pi/data/ /incoming/irap/pkucera/weather_stations/3D_PAWS_" + str(int(self.chords_id)) + "/")
+        cron = CronTab(user='root')
+        for job in cron:
+            if job.comment == "RAL FTP":
+                if self.backup_toggle == "true":
+                    job.enable()              
+                else:
+                    job.enable(False)
+                cron.write()
+                break
         self.Destroy()
 
 

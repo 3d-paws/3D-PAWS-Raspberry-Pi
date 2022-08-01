@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, scripts)
 from crontab import CronTab
 import wx.lib.scrolledpanel as scrolled
-import helper_functions, wx, barometric_menu, interval_menu, chords_menu, data_modal, os
+import helper_functions, wx, barometric_menu, interval_menu, backup_menu, data_modal, os
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
@@ -83,14 +83,14 @@ class Window(wx.Frame):
         menubar = wx.MenuBar()
         settingsMenu = wx.Menu()
         # Create Barometric menu option
-        barometric_item = settingsMenu.Append(wx.Window.NewControlId(), 'Change Barometric Values')
+        barometric_item = settingsMenu.Append(wx.Window.NewControlId(), 'Barometric Values')
         self.Bind(wx.EVT_MENU, self.OpenBarometricOptions, barometric_item)
         # Create Interval menu option
-        interval_item = settingsMenu.Append(wx.Window.NewControlId(), 'Change Intervals')
+        interval_item = settingsMenu.Append(wx.Window.NewControlId(), 'Intervals')
         self.Bind(wx.EVT_MENU, self.OpenIntervalOptions, interval_item)
         # Create CHORDS menu option
-        chords_item = settingsMenu.Append(wx.Window.NewControlId(), 'CHORDS Menu')
-        self.Bind(wx.EVT_MENU, self.OpenChordsOptions, chords_item)
+        chords_item = settingsMenu.Append(wx.Window.NewControlId(), 'Backup Menu')
+        self.Bind(wx.EVT_MENU, self.OpenBackupOptions, chords_item)
         # Add finished Settings menu to the menu bar
         menubar.Append(settingsMenu, 'Settings')
         self.SetMenuBar(menubar)
@@ -196,8 +196,8 @@ class Window(wx.Frame):
         cdDialog.Destroy()
 
 
-    def OpenChordsOptions(self, e):
-        cdDialog = chords_menu.ChangeChords(None)
+    def OpenBackupOptions(self, e):
+        cdDialog = backup_menu.ChangeChords(None)
         cdDialog.ShowModal()
         self.SetStatusBar()
         cdDialog.Destroy()
