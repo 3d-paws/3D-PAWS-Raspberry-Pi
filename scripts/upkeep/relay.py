@@ -11,7 +11,7 @@ sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import time, RPi.GPIO as GPIO, helper_functions
 
 GPIO.setwarnings(False)
-GPIO_PIN = 17
+GPIO_PIN = 5
 GPIO.setmode(GPIO.BCM) 
 GPIO.setup(GPIO_PIN, GPIO.OUT) 
 
