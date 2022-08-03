@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # Code to control the wind direction sensor. Write observations to disk
 # Computes a 1 minute geometric average
-# Paul A. Kucera, Ph.D. and Joseph E. Rener
+# Paul A. Kucera, Ph.D. and Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Helper code for the various sensor scripts
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

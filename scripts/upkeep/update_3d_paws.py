@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # Code to update 3d paws software
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

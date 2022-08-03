@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Code to control the MCP3002 sensor. Write observations to disk
-# Paul A. Kucera, Ph.D. and Joseph E. Rener
+# Paul A. Kucera, Ph.D. and Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Code for the pressure level menu
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # Code for the chords menu
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

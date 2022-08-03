@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Code to activate/deactivate the relay
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

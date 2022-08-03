@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 # Code for the sensor-controlling UI
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
-# Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
 logs = '/home/pi/3d_paws/logs/'

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Code for the chords interval menu
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

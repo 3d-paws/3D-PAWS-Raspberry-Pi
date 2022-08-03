@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Code to control the BMP280 and BME280 I2C sensors. Write observations to disk
-# Paul A. Kucera, Ph.D. and Joseph E. Rener
-# NCAR/RAL
+# Paul A. Kucera, Ph.D. and Joseph Rener
+# UCAR
 # Boulder, CO USA
 # Email: pkucera@ucar.edu and jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)

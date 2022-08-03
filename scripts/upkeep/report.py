@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # Code to control the BMP280 and BME280 I2C sensors. Write observations to disk
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu

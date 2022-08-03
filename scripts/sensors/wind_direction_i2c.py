@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Code to control the wind direction I2C sensor. Write observations to disk
-# Joseph E. Rener
+# Joseph Rener
 # UCAR
 # Boulder, CO USA
 # Email: jrener@ucar.edu
