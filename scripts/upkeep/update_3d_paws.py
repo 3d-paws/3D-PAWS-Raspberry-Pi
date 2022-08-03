@@ -10,22 +10,23 @@
 #To stop updates: change environement.py so it will turn off the cron for update_3d_paws.py, thus stopping updates on all current stations. Wait for this update to be pushed out before
 #committing the changes that aren't reverse compatable. Change environement.py back before setting up new stations so that they'll still be able to update.
 
-import sys
-sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import os, time, urllib.request
-
+import os, sys, time, urllib.request
+root = '/home/pi/'
+path = root + '3d_paws'
+old_path = path + "_old"
+git = 'https://github.com/3d-paws/3d_paws'
 
 #checks for internet connection
 def connect():
     try:
-        urllib.request.urlopen('http://google.com')
+        urllib.request.urlopen(git)
         print("Internet found.")
         print()
-        if not os.path.exists("/home/pi/time_check.txt"):
+        if not os.path.exists(root + "time_check.txt"):
             print("Setting the Real Time Clock...")
             result = os.system("sudo hwclock -w")
             if result == 0:
-                with open("/home/pi/time_check.txt", 'w') as file:
+                with open(root + "time_check.txt", 'w') as file:
                     file.write("RTC successfully set. Do not delete this file unless you need to reset the RTC.")
                 print("RTC successfully set.")
             else:
@@ -37,18 +38,18 @@ def connect():
 
 
 def cleanup(situation): 
-    if os.path.exists("/home/pi/3d_paws"):
-        if os.path.exists("/home/pi/3d_paws_old"):
+    if os.path.exists(path):
+        if os.path.exists(old_path):
             print("Finalizing changes...")
-            run_command("sudo rm -rf /home/pi/3d_paws_old", situation)
+            run_command("sudo rm -rf " + old_path, situation)
         print("Update complete!")
         print("Restarting...")
         time.sleep(4)
         os.system("sudo reboot")
     else:
-        if os.path.exists("/home/pi/3d_paws_old"):
+        if os.path.exists(old_path):
             print("Rolling back changes...")
-            run_command("sudo mv /home/pi/3d_paws_old /home/pi/3d_paws", situation)
+            run_command("sudo mv " + old_path + " " + path, situation)
 
 
 #runs a command in terminal and checks for issues; extra: 1 = git error, 2 = error while fixing error
@@ -66,7 +67,8 @@ def run_command(command, extra=None):
             print("Pi OS successfully updated. Trying failed step again...")
             run_command(command, 2)
         elif extra == 2:
-            print("ERROR: Could not solve the issue. Command '%s' failed with exit code %d. Please go to https://github.com/3d-paws/3d_paws for detailed instructions, or contact Joey at jrener@ucar.edu for assistance." %(command, code))
+            print()
+            print("ERROR: Could not solve the issue. Command '%s' failed with exit code %d. Please go to %s for detailed instructions, or contact Joey at jrener@ucar.edu for assistance." %(command, code, git))
             print()
             cleanup(2)
             print("Update failed.")
@@ -74,6 +76,11 @@ def run_command(command, extra=None):
 
 
 #check for internet
+"""
+run_command("sudo rm -rf 3d_paws", 1)
+if os.path.exists("3d_paws"):
+    print("O")
+"""
 print("Checking for internet...")
 if not connect():
     print("No internet connection found. You must be connected to the internet in order to update software.")
@@ -81,24 +88,26 @@ if not connect():
     sys.exit()
 #download
 print("Downloading 3D PAWS software package...")
-if os.path.exists("/home/pi/3d_paws"):
-    run_command("sudo mv /home/pi/3d_paws /home/pi/3d_paws_old")
+if os.path.exists(path):
+    run_command("sudo mv " + path + " " + old_path)
 run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
+if os.getcwd() != root:
+    run_command("sudo mv 3d_paws/ " + path)
 print("Download complete.")
 print()
 #permissions
 print("Updating permissions...")
-run_command("sudo chmod -R a+rwx /home/pi/3d_paws/")
+run_command("sudo chmod -R a+rwx " + path)
 print("Permissions successfully updated.")
 print()
 #install
 print("Installing dependencies (this could take some time)...")
-run_command("sudo python3 /home/pi/3d_paws/setup.py install")
+run_command("sudo python3 " + path + "/setup.py install")
 print("Dependencies successfully installed.")
 print()
 #cron
 print("Updating cron...")
-run_command("sudo python3 /home/pi/3d_paws/environment.py")
+run_command("sudo python3 " + path + "/environment.py")
 print("Cron successfully updated.")
 print()
 #finish
