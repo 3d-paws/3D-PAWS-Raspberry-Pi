@@ -7,8 +7,10 @@
 # Copyright (c) 2022 UCAR
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
-import os
+import os, sys
 from crontab import CronTab
+sys.path.insert(0, '/home/pi/3d_paws/scripts/')
+import helper_functions
 cron = CronTab(user='root')
 root_path = "/home/pi/3d_paws/scripts/"
 variables = "1,1,false,0,3d.chordsrt.com,1013.25,false,100000.0" #record_interval, chords_interval, chords_toggle, chords_id, link, pressue_level, test_toggle, altitude
@@ -110,23 +112,24 @@ else:
 print()
 
 
-#Check for ral_backup, and create it if it doesn't exist
-print("Checking for ral_backup...")
-variable_path = "/home/pi/ral_backup" 
-if os.path.exists(variable_path):
-    print("ral_backup found.")
+#Update ral_backup
+ral_path = "/home/pi/ral_backup" 
+inputs = helper_functions.getArguments()
+id = str(inputs[3])
+if os.path.exists(ral_path):
+    print("Updating ral_backup...")
+    os.system("sudo rm " + ral_path)
+    update_ral = True
 else:
     print("Creating ral_backup...")
-    import sys
-    sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-    import helper_functions
-    inputs = helper_functions.getArguments()
-    id = str(inputs[3])
-    with open(variable_path, 'w') as file:
-        file.write("connect ftp://ftp.rap.ucar.edu")
-        file.write("\n")
-        file.write("mirror -R --newer-than=now-7days /home/pi/data/ /incoming/irap/pkucera/weather_stations/3D_PAWS_" + id +"/")
-    os.chmod(variable_path, 0o777)
+with open(ral_path, 'w') as file:
+    file.write("connect ftp://ftp.rap.ucar.edu")
+    file.write("\n")
+    file.write("mirror -R --newer-than=now-7days /home/pi/data/ /incoming/irap/pkucera/weather_stations/3D_PAWS_" + id +"/")
+os.chmod(ral_path, 0o777)
+if update_ral:
+    print("File successfully updated.")
+else:
     print("File successfully created.")
 print()
 
