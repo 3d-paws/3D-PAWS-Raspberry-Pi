@@ -11,10 +11,11 @@
 #committing the changes that aren't reverse compatable. Change environement.py back before setting up new stations so that they'll still be able to update.
 
 import os, sys, time, urllib.request
-root = '/home/pi/'
-path = root + '3d_paws'
+root = '/home/pi'
+path = root + '/3d_paws'
 old_path = path + "_old"
 git = 'https://github.com/3d-paws/3d_paws'
+
 
 #checks for internet connection
 def connect():
@@ -22,11 +23,11 @@ def connect():
         urllib.request.urlopen(git)
         print("Internet found.")
         print()
-        if not os.path.exists(root + "time_check.txt"):
+        if not os.path.exists(root + "/time_check.txt"):
             print("Setting the Real Time Clock...")
             result = os.system("sudo hwclock -w")
             if result == 0:
-                with open(root + "time_check.txt", 'w') as file:
+                with open(root + "/time_check.txt", 'w') as file:
                     file.write("RTC successfully set. Do not delete this file unless you need to reset the RTC.")
                 print("RTC successfully set.")
             else:
@@ -75,40 +76,40 @@ def run_command(command, extra=None):
             sys.exit()
 
 
-#check for internet
-"""
-run_command("sudo rm -rf 3d_paws", 1)
-if os.path.exists("3d_paws"):
-    print("O")
-"""
-print("Checking for internet...")
-if not connect():
-    print("No internet connection found. You must be connected to the internet in order to update software.")
+#main update sequence
+def main():
+    #check for internet
+    print("Checking for internet...")
+    if not connect():
+        print("No internet connection found. You must be connected to the internet in order to update software.")
+        print()
+        sys.exit()
+    #download
+    print("Downloading 3D PAWS software package...")
+    if os.path.exists(path):
+        run_command("sudo mv " + path + " " + old_path)
+    run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
+    if os.getcwd() != root:
+        run_command("sudo mv 3d_paws/ " + path)
+    print("Download complete.")
     print()
-    sys.exit()
-#download
-print("Downloading 3D PAWS software package...")
-if os.path.exists(path):
-    run_command("sudo mv " + path + " " + old_path)
-run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
-if os.getcwd() != root:
-    run_command("sudo mv 3d_paws/ " + path)
-print("Download complete.")
-print()
-#permissions
-print("Updating permissions...")
-run_command("sudo chmod -R a+rwx " + path)
-print("Permissions successfully updated.")
-print()
-#install
-print("Installing dependencies (this could take some time)...")
-run_command("sudo python3 " + path + "/setup.py install")
-print("Dependencies successfully installed.")
-print()
-#cron
-print("Updating cron...")
-run_command("sudo python3 " + path + "/environment.py")
-print("Cron successfully updated.")
-print()
-#finish
-cleanup(None)
+    #permissions
+    print("Updating permissions...")
+    run_command("sudo chmod -R a+rwx " + path)
+    print("Permissions successfully updated.")
+    print()
+    #install
+    print("Installing dependencies (this could take some time)...")
+    run_command("sudo python3 " + path + "/setup.py install")
+    print("Dependencies successfully installed.")
+    print()
+    #cron
+    print("Updating cron...")
+    run_command("sudo python3 " + path + "/environment.py")
+    print("Cron successfully updated.")
+    print()
+    #finish
+    cleanup(None)
+
+
+main()
