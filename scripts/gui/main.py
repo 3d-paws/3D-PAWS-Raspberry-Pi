@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, scripts)
 from crontab import CronTab
 import wx.lib.scrolledpanel as scrolled
-import helper_functions, wx, barometric_menu, interval_menu, backup_menu, data_modal, os
+import helper_functions, wx, barometric_menu, interval_menu, backup_menu, relay_menu, data_modal, os
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
@@ -88,8 +88,11 @@ class Window(wx.Frame):
         interval_item = settingsMenu.Append(wx.Window.NewControlId(), 'Intervals')
         self.Bind(wx.EVT_MENU, self.OpenIntervalOptions, interval_item)
         # Create CHORDS menu option
-        chords_item = settingsMenu.Append(wx.Window.NewControlId(), 'Backup Menu')
+        chords_item = settingsMenu.Append(wx.Window.NewControlId(), 'Backup')
         self.Bind(wx.EVT_MENU, self.OpenBackupOptions, chords_item)
+        # Create Relay menu option
+        relay_item = settingsMenu.Append(wx.Window.NewControlId(), 'Relay')
+        self.Bind(wx.EVT_MENU, self.OpenRelayOptions, relay_item)
         # Add finished Settings menu to the menu bar
         menubar.Append(settingsMenu, 'Settings')
         self.SetMenuBar(menubar)
@@ -199,6 +202,12 @@ class Window(wx.Frame):
         cdDialog = backup_menu.ChangeChords(None)
         cdDialog.ShowModal()
         self.SetStatusBar()
+        cdDialog.Destroy()
+
+
+    def OpenRelayOptions(self, e):
+        cdDialog = relay_menu.ChangeRelay(None)
+        cdDialog.ShowModal()
         cdDialog.Destroy()
 
 
