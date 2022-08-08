@@ -52,6 +52,11 @@ def cleanup(situation):
             print("Rolling back changes...")
             run_command("sudo mv " + old_path + " " + path, situation)
 
+        
+def move(start, end):
+    if os.path.exists(start):
+        run_command("sudo mv " + start + " " + end)
+
 
 #runs a command in terminal and checks for issues; extra: 1 = git error, 2 = error while fixing error
 def run_command(command, extra=None):
@@ -85,22 +90,24 @@ def main():
         print()
         sys.exit()
     #download
-    print("Downloading 3D PAWS software package...")
-    if os.path.exists(path):
-        #preserve old data
-        data_path = path + "/data/"
-        if os.path.exists(data_path):
-            run_command("sudo mv " + data_path + " " + root + "/data/")
-        #preserve old variables
-        input_path = path + "/scripts/input.txt"
-        if os.path.exists(input_path):
-            run_command("sudo mv " + input_path + " " + root + "/Desktop/variables.txt")
-        #rename old 3d paws folder to fallback on in case update fails
-        run_command("sudo mv " + path + " " + old_path)
+    print("Backing up information...")
+    #preserve old data
+    move(path + "/data/", root + "/data/")
+    move(root + "/3d-paws/data/", root + "/data/")
+    #preserve old variables
+    move(path + "/scripts/input.txt", root + "/Desktop/variables.txt")
+    move(root + "/3d-paws/scripts/input.txt", root + "/Desktop/variables.txt")
+    #rename old 3d paws folder to fallback on in case update fails
+    move(path, old_path)
+    print("Backup complete.")
+    print()
     #install new 3d paws
+    print("Downloading 3D PAWS software package...")
+    if os.path.exists('3d_paws'):
+        run_command("sudo rm -rf 3d_paws")
     run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
     if os.getcwd() != root:
-        run_command("sudo mv 3d_paws/ " + path)
+        move("3d_paws/", path)
     print("Download complete.")
     print()
     #permissions
