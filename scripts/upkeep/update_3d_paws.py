@@ -43,10 +43,11 @@ def cleanup(situation):
         if os.path.exists(old_path):
             print("Finalizing changes...")
             run_command("sudo rm -rf " + old_path, situation)
-        print("Update complete!")
-        print("Restarting...")
-        time.sleep(4)
-        os.system("sudo reboot")
+        if situation != 2:
+            print("Update complete!")
+            print("Restarting...")
+            time.sleep(4)
+            os.system("sudo reboot")
     else:
         if os.path.exists(old_path):
             print("Rolling back changes...")
