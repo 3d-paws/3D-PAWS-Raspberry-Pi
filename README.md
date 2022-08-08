@@ -43,23 +43,6 @@ You can either launch the GUI from the desktop by double clicking the icon, or f
 sudo python3 /home/pi/3d_paws/scripts/gui/main.py
 ```
 
-If for some reason you don't have a desktop shortcut, you can make one. First, in the File manager, select Edit -> Preferences -> General -> "Do not ask option on executable launch"
-
-Then right click the desktop, and make a file called 3d_paws.desktop
-Open it, and paste the following in:
-```bash
-[Desktop Entry]
-Version=1.1
-Type=Application
-Encoding=UTF-8
-Name=3D_PAWS
-Comment=3d paws gui
-Icon=/home/pi/3d_paws/3d_paws_icon.png
-Exec=sudo python3 /home/pi/3d_paws/scripts/gui/main.py
-Terminal=false
-Categories=Graphics
-```
-
 ## Update
 The software will update itself every Monday morning at midnight UTC. To force an update sooner, open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
 

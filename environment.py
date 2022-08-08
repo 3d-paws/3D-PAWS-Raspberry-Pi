@@ -132,5 +132,16 @@ else:
     print("File successfully created.")
 print()
 
+
+#Update desktop icon
+print("Updating desktop icon...")
+icon_path = "/home/pi/Desktop/3d_paws"
+if os.path.exists(icon_path):
+    os.system("sudo rm " + icon_path)
+os.system("sudo mv /home/pi/3d_paws/desktop.txt /home/pi/Desktop/3d_paws")
+print("Icon successfully updated.")
+print()
+
+
 print("Envionment successfully updated.")
 print()
