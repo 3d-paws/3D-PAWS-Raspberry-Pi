@@ -87,7 +87,17 @@ def main():
     #download
     print("Downloading 3D PAWS software package...")
     if os.path.exists(path):
+        #preserve old data
+        data_path = path + "/data/"
+        if os.path.exists(data_path):
+            run_command("sudo mv " + data_path + " " + root + "/data/")
+        #preserve old variables
+        input_path = path + "/scripts/input.txt"
+        if os.path.exists(input_path):
+            run_command("sudo mv " + input_path + " " + root + "/Desktop/variables.txt")
+        #rename old 3d paws folder to fallback on in case update fails
         run_command("sudo mv " + path + " " + old_path)
+    #install new 3d paws
     run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
     if os.getcwd() != root:
         run_command("sudo mv 3d_paws/ " + path)
