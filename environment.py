@@ -121,6 +121,7 @@ if os.path.exists(ral_path):
     update_ral = True
 else:
     print("Creating ral_backup...")
+    update_ral = False
 with open(ral_path, 'w') as file:
     file.write("connect ftp://ftp.rap.ucar.edu")
     file.write("\n")
