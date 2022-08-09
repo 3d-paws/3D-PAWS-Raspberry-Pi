@@ -38,10 +38,32 @@ Other Way: Update the variables.txt file directly, which is on located your Desk
 In either case, the software will run without any changes made during this step. However, we recommend at least changing pressure level and altitude to ensure the data is accurate. 
 
 ## Usage
+### Remote Viewing
+If you need to remote into the pi, there are multiple ways to do so.
+
+1. SSH (requires pi's ip address)
+```bash
+username: pi
+password: Wrf2Pi8!
+```
+
+2. AnyDesk (requires pi's AnyDesk id)
+```bash
+password: 3d_paws!
+```
+
+3. Teamviewer (requires pi's Teamviewer id)
+```bash
+password: ps2222
+```
+
+### Launching the Software
 You can either launch the GUI from the desktop by double clicking the icon, or from the terminal.
 ```bash
 sudo python3 /home/pi/3d_paws/scripts/gui/main.py
 ```
+### Finding the Data
+If the option is activated, the pi will report to CHORDS and/or backup data to the RAL server. If you want to locate your data locally, you can find it in /home/pi/data/. Data gathered over a 24-hour period are stored into a single file.
 
 ## Update
 The software will update itself every Monday morning at midnight UTC. To force an update sooner, open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
