@@ -76,7 +76,7 @@ def output(show, line, sensor, remote = None):
 		if inputs[6] == "true" or "test_" in sensor:
 			if "test_" in sensor:
 				sensor = sensor.replace("test_", "")
-			filename = create_filename('data/tests/' + sensor + '/', '%s_%4d%02d%02d.dat' %(sensor, sensor, now.year, now.month, now.day))
+			filename = create_filename('data/tests/' + sensor + '/', '%s_%4d%02d%02d.dat' %(sensor, now.year, now.month, now.day))
 			full_line = time + " " + str(now.second) + " " + line
 		else:
 			if sensor == "all":
