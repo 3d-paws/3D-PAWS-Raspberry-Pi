@@ -89,45 +89,45 @@ def main():
     if not connect():
         print("No internet connection found. You must be connected to the internet in order to update software.")
         print()
-        sys.exit()
-    #download
-    print("Backing up information...")
-    #preserve old data
-    move(path + "/data/", root + "/data/")
-    move(root + "/3d-paws/data/", root + "/data/")
-    #preserve old variables
-    move(path + "/scripts/input.txt", root + "/Desktop/variables.txt")
-    move(root + "/3d-paws/scripts/input.txt", root + "/Desktop/variables.txt")
-    #rename old 3d paws folder to fallback on in case update fails
-    move(path, old_path)
-    print("Backup complete.")
-    print()
-    #install new 3d paws
-    print("Downloading 3D PAWS software package...")
-    if os.path.exists('3d_paws'):
-        run_command("sudo rm -rf 3d_paws")
-    run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
-    if os.getcwd() != root:
-        move("3d_paws/", path)
-    print("Download complete.")
-    print()
-    #permissions
-    print("Updating permissions...")
-    run_command("sudo chmod -R a+rwx " + path)
-    print("Permissions successfully updated.")
-    print()
-    #install
-    print("Installing dependencies (this could take some time)...")
-    run_command("sudo python3 " + path + "/setup.py install")
-    print("Dependencies successfully installed.")
-    print()
-    #cron
-    print("Updating cron...")
-    run_command("sudo python3 " + path + "/environment.py")
-    print("Cron successfully updated.")
-    print()
-    #finish
-    cleanup(None)
+    else:
+        #download
+        print("Backing up information...")
+        #preserve old data
+        move(path + "/data/", root + "/data/")
+        move(root + "/3d-paws/data/", root + "/data/")
+        #preserve old variables
+        move(path + "/scripts/input.txt", root + "/Desktop/variables.txt")
+        move(root + "/3d-paws/scripts/input.txt", root + "/Desktop/variables.txt")
+        #rename old 3d paws folder to fallback on in case update fails
+        move(path, old_path)
+        print("Backup complete.")
+        print()
+        #install new 3d paws
+        print("Downloading 3D PAWS software package...")
+        if os.path.exists('3d_paws'):
+            run_command("sudo rm -rf 3d_paws")
+        run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
+        if os.getcwd() != root:
+            move("3d_paws/", path)
+        print("Download complete.")
+        print()
+        #permissions
+        print("Updating permissions...")
+        run_command("sudo chmod -R a+rwx " + path)
+        print("Permissions successfully updated.")
+        print()
+        #install
+        print("Installing dependencies (this could take some time)...")
+        run_command("sudo python3 " + path + "/setup.py install")
+        print("Dependencies successfully installed.")
+        print()
+        #cron
+        print("Updating cron...")
+        run_command("sudo python3 " + path + "/environment.py")
+        print("Cron successfully updated.")
+        print()
+        #finish
+        cleanup(None)
 
 
 main()
