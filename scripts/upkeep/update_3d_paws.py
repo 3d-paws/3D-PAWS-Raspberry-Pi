@@ -119,6 +119,7 @@ def main():
         #install
         print("Installing dependencies (this could take some time)...")
         run_command("sudo python3 " + path + "/setup.py install")
+        run_command("sudo apt-get install lftp")
         print("Dependencies successfully installed.")
         print()
         #cron
