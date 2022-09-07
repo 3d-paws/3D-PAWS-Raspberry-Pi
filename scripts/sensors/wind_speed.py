@@ -74,11 +74,6 @@ while True:
 			wind_spd = wind*SCALE+OFFSET
 		else:
 			wind_spd = 0.0
-		try:
-			connect = mcp9808.MCP9808(i2c)
-		except:
-			if wind_spd == 0.0:
-				wind_spd = -999.99
 
 		# Get current time for each record and filename
 		now = datetime.datetime.utcnow()

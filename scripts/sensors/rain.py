@@ -39,9 +39,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Variable to keep track of how much rain
-rain = 0
-rain_accumulation = 0.0
-rain_accumulation_chords = 0.0
+rain = 0.0
 
 # Call back function for each bucket tip
 def tipped(channel):
@@ -59,25 +57,15 @@ while True:
 		# Get current time for writing to file
 		now = datetime.datetime.utcnow()
 
-		# Accumulate rain for larger intervals
-		rain_accumulation += rain
-		rain_accumulation_chords += rain
-
 		# Handle script output
-		line = "%.2f" % (rain_accumulation)		
+		line = "%.2f" % (rain)		
 		if command_test:
 			helper_functions.output(True, line, "test_rain")
 		else:
 			helper_functions.output(True, line, "rain")
 
-		# Reset rain_accumination
-		rain_accumulation = 0.0
-
-		# Reset rain_accumination_chords if it's time to send it to chords
-		if test == "false" and now.minute % chords_interval == 0: 
-			rain_accumulation_chords = 0.0
-					
-		rain = 0		
+		# Reset rain
+		rain = 0.0
 
 		# Wait until the interval has passed and run again
 		time.sleep(rest)
