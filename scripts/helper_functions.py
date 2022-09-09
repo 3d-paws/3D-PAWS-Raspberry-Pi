@@ -6,7 +6,7 @@
 # Email: jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
-import requests, datetime, re, sys, os
+import datetime, re, sys, os
 
 # Get script arguments
 def getArguments():
@@ -59,17 +59,20 @@ def getArguments():
 	if test_toggle != "true" and test_toggle != "false":
 		test_toggle = "false"
 	# Get altitude; set to 100000 if there's an issue with it
-	clean_altitude = remove_nondecimal.sub('', inputs[7])
-	altitude = 100000.0
-	if clean_altitude != "":
-		altitude = float(clean_altitude)
+	try:
+		clean_altitude = remove_nondecimal.sub('', inputs[7])
+		altitude = 100000.0
+		if clean_altitude != "":
+			altitude = float(clean_altitude)
+	except:
+		altitude = 100000.0
 	return [record_interval, chords_interval, chords_toggle, chords_id, link, pressue_level, test_toggle, altitude]
 	
 
 # Print output and/or log it
 def output(show, line, sensor, remote = None):
 	inputs = getArguments()
-	now = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+	now = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
     # Open a file (name based on current date) and append data if the remainder of the current time divided by the interval is 0
 	if now.minute % inputs[0] == 0 or inputs[6] == "true":
 		time = "%4d %02d %02d %02d %02d" % (now.year, now.month, now.day, now.hour, now.minute)
@@ -99,7 +102,7 @@ def output(show, line, sensor, remote = None):
 		file.close()
 	# Create stdio line and print to screen if show is True
 	if show:
-		print(full_line)
+		print(full_line) #TODO if interval is more than 1 minute, this line will fail since full_line will never be created in the above if statement
 
 
 def create_filename(folder, file):
@@ -108,17 +111,6 @@ def create_filename(folder, file):
 		os.makedirs(path)
 	filename = path + file
 	return filename
-
-
-# Send data to the NCAR/EOL CHORDS website (requires a unique instrument_id; set to zero by default)
-def reportCHORDS(chords_toggle, current_minute, interval, url):
-    # Report every [interval] minutes by checking if the remainder of the current time divided by the interval is 0
-	if current_minute % interval == 0 and chords_toggle == "true": 
-		try:
-			requests.get(url=url)
-			#output(True, url, "/home/pi/3d_paws/logs/chords_testing.log")
-		except:
-			pass
 
 
 # Format and print errors

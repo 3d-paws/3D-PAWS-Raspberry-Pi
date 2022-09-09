@@ -8,7 +8,7 @@
 
 import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import datetime, os, helper_functions
+import datetime, os, requests, helper_functions
 
 
 # Get script arguments
@@ -78,10 +78,17 @@ if now.minute % record_interval == 0 and test_toggle == "false":
     if wind_speed:
         data[17] = float(wind_speed[5])
 
+
     #save to daily file if data is being recorded
     if not all(ele == data[0] for ele in data):
         helper_functions.output(False, data, "all")
 
+
     #report to chords if it's time to
-    url = "http://%s/measurements/url_create?instrument_id=%d&bmp_temp=%05.1f&bmp_pressure=%07.2f&bmp_slp=%07.2f&bmp_altitude=%07.2f&bme_temp=%05.1f&bme_pressure=%07.2f&bme_slp=%07.2f&bme_altitude=%07.2f&bme_humidity=%07.2f&htu21d_temp=%05.1f&htu21d_humidity=%04.1f&mcp9808=%05.1f&rain=%04.2f&si1145_vis=%010.1f&si1145_ir=%010.1f&si1145_uv=%010.1f&wind_direction=%05.1f&wind_speed=%04.2f&key=21DE6A8A" % (chords_link, chords_id, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17])
-    helper_functions.reportCHORDS(chords_toggle, now.minute, chords_interval, url)
+    url = "http://%s/measurements/url_create?instrument_id=%d&bmp_temp=%05.1f&bmp_pressure=%07.2f&bmp_slp=%07.2f&bmp_altitude=%07.2f&bme_temp=%05.1f&bme_pressure=%07.2f&bme_slp=%07.2f&bme_altitude=%07.2f&bme_humidity=%07.2f&htu21d_temp=%05.1f&htu21d_humidity=%04.1f&mcp9808=%05.1f&rain=%04.2f&si1145_vis=%010.1f&si1145_ir=%010.1f&si1145_uv=%010.1f&wind_direction=%05.1f&wind_speed=%04.2f&key=21DE6A8A" % (chords_link, chords_id, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17])	
+    if now.minute % chords_interval == 0 and chords_toggle == "true": 
+        try:
+            requests.get(url=url)
+            #output(True, url, "/home/pi/3d_paws/logs/chords_testing.log")
+        except:
+            pass
