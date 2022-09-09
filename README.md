@@ -6,7 +6,7 @@
 If you're using our OS image (contact Paul Kucera at pkucera@ucar.edu for more information) then all you need to do in order to update to the latest software version is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
-update_3d_paws.py
+sudo python3 update_3d_paws.py
 ```
 
 Once that's done, move on to Set Variables. If you want to update manually, continue to Manual Installation. 
@@ -69,7 +69,7 @@ If the option is activated, the pi will report to CHORDS and/or backup data to t
 The software will update itself every Monday morning at midnight UTC. To force an update sooner, open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
 
 ```bash
-update_3d_paws.py
+sudo python3 update_3d_paws.py
 ```
 
 ## License
