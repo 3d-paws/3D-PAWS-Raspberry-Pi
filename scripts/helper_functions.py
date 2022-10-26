@@ -79,15 +79,15 @@ def output(show, line, sensor, remote = None):
 		if inputs[6] == "true" or "test_" in sensor:
 			if "test_" in sensor:
 				sensor = sensor.replace("test_", "")
-			filename = create_filename('data/tests/' + sensor + '/', '%s_%4d%02d%02d.dat' %(sensor, now.year, now.month, now.day))
+			filename = create_filename('data/tests/' + sensor + '/', '%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))
 			full_line = time + " " + str(now.second) + " " + line
 		else:
 			if sensor == "all":
-				filename = create_filename('data/', 'recordings_%4d%02d%02d.dat' %(now.year, now.month, now.day))
+				filename = create_filename('data/', 'recordings_%4d_%02d_%02d.dat' %(now.year, now.month, now.day))
 				d = line
 				full_line = "%4.4d %4.02d %4.02d %5.02d %4.02d %9.2f %9.2f %8.2f %8.2f %9.2f %9.2f %8.2f %8.2f %8.2f %9.2f %8.2f %8.2f %8.2f %10.2f %9.2f %9.2f %9.2f %11.2f" % (now.year, now.month, now.day, now.hour, now.minute, d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17])
 			elif remote:
-				filename = create_filename('data/', 'remote_%s_%4d%02d%02d.dat' %(sensor, now.year, now.month, now.day))
+				filename = create_filename('data/', 'remote_%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))
 				full_line = time + " " + line
 			else:
 				filename = create_filename('data/temporary/', sensor + '.tmp')
