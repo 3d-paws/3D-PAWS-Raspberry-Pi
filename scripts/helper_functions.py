@@ -72,7 +72,7 @@ def getArguments():
 # Print output and/or log it
 def output(show, line, sensor, remote = None):
 	inputs = getArguments()
-	now = datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+	now = datetime.datetime.utcnow() #+ datetime.timedelta(minutes=1)
     # Open a file (name based on current date) and append data if the remainder of the current time divided by the interval is 0
 	if now.minute % inputs[0] == 0 or inputs[6] == "true":
 		time = "%4d %02d %02d %02d %02d" % (now.year, now.month, now.day, now.hour, now.minute)
