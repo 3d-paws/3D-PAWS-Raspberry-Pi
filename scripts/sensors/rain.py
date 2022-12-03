@@ -21,10 +21,10 @@ test_toggle = arguments[6]
 test = True
 if len(sys.argv) > 1:
 	rest = int(sys.argv[1])
-elif test_toggle == "true":
-	rest = record_interval
 elif os.isatty(sys.stdin.fileno()):
 	rest = 60*record_interval
+elif test_toggle == "true":
+	rest = record_interval
 else:
 	test = False
 	rest = 60*record_interval
