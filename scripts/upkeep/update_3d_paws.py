@@ -69,8 +69,8 @@ def run_command(command, extra=None):
             run_command(command, 2)
         elif extra != 2:
             print("ERROR: Failed with exit code %d. Attempting to fix (this could take some time)..." %code)
-            run_command("sudo apt-get update", 2)
-            run_command("sudo apt full-upgrade", 2)
+            run_command("sudo apt-get update -y", 2)
+            run_command("sudo apt full-upgrade -y", 2)
             print("Pi OS successfully updated. Trying failed step again...")
             run_command(command, 2)
         elif extra == 2:
@@ -104,9 +104,10 @@ def main():
         print()
         #install new 3d paws
         print("Downloading 3D PAWS software package...")
-        if os.path.exists('3d_paws'):
-            run_command("sudo rm -rf 3d_paws")
-        run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
+        if os.path.exists(root + '/Desktop/test_machine'):
+            run_command("sudo git clone -b testing --single-branch https://github.com/3d-paws/3d_paws", 1)
+        else:
+            run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
         if os.getcwd() != root:
             move("3d_paws/", path)
         print("Download complete.")
