@@ -11,15 +11,12 @@ import wx, helper_functions
 class ChangeBarometric(wx.Dialog):
     def __init__(self, parent):
         super(ChangeBarometric, self).__init__(parent)
-        inputs = helper_functions.getArguments()
-        self.record_interval = str(inputs[0])
-        self.chords_interval = str(inputs[1])
-        self.chords_toggle = str(inputs[2])
-        self.chords_id = str(inputs[3])
-        self.chords_link = str(inputs[4])
-        self.pressure_level = str(inputs[5])
-        self.test_toggle = str(inputs[6])
-        self.altitude = str(inputs[7])
+        inputs = helper_functions.getVariables()
+        self.test_toggle = str(inputs[0])
+        self.chords_id = str(inputs[1])
+        self.chords_link = str(inputs[2])
+        self.pressure_level = str(inputs[3])
+        self.altitude = str(inputs[4])
         self.InitUI()
         self.SetTitle("Barometric Values Menu")
 
@@ -99,7 +96,7 @@ class ChangeBarometric(wx.Dialog):
 
     def OnSave(self, e):
         with open("/home/pi/Desktop/variables.txt", 'w') as file:
-            file.write(self.record_interval + "," + self.chords_interval + "," + self.chords_toggle + "," + self.chords_id + "," + self.chords_link + "," + str(self.pressure_level) + "," + self.test_toggle + "," + str(self.altitude))
+            file.write(self.test_toggle + "," + self.chords_id + "," + self.chords_link + "," + str(self.pressure_level) + "," + str(self.altitude))
         self.Destroy()
 
 

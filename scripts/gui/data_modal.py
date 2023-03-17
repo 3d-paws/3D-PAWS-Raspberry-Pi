@@ -13,9 +13,9 @@ class ShowData(wx.Dialog):
     def __init__(self, parent, sensor):
         super(ShowData, self).__init__(parent)
         self.sensor = sensor
-        # Get Arguments
-        arguments = helper_functions.getArguments()
-        test_toggle = arguments[6]
+        # Get Variables
+        variables = helper_functions.getVariables()
+        test_toggle = variables[0]
         # Grab the most recent data file and read its lines into a list
         if test_toggle == "true":
             list_of_files = glob.glob('/home/pi/data/tests/' + self.sensor + '*.dat')
@@ -47,7 +47,7 @@ class ShowData(wx.Dialog):
         if self.sensor == "Remote Stations":
             sentence = "remote stations."
         else:
-            sentence = self.sensor.lower() + " sensor."
+            sentence = self.sensor.lower() + "."
         vbox.Add(wx.StaticText(scrolled_panel, label="These are the most recent data entries from the " + sentence + "     "), flag=wx.ALL, border=15)
         # Make a horizontal line
         line = wx.StaticLine(scrolled_panel)

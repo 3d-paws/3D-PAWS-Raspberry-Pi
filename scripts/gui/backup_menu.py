@@ -12,22 +12,21 @@ from crontab import CronTab
 class ChangeChords(wx.Dialog):
     def __init__(self, parent):
         super(ChangeChords, self).__init__(parent)
-        inputs = helper_functions.getArguments()
-        self.record_interval = str(inputs[0])
-        self.chords_interval = str(inputs[1])
-        self.chords_id = str(inputs[3])
-        self.chords_toggle = str(inputs[2])
-        self.chords_link = str(inputs[4])
-        self.pressure_level = str(inputs[5])
-        self.test_toggle = str(inputs[6])
-        self.altitude = str(inputs[7])
-        self.backup_toggle = 'false'
+        inputs = helper_functions.getVariables()
+        self.test_toggle = str(inputs[0])
+        self.chords_id = str(inputs[1])
+        self.chords_link = str(inputs[2])
+        self.pressure_level = str(inputs[3])
+        self.altitude = str(inputs[4])
+        self.backup_toggle = False
+        self.chords_toggle = False
         cron = CronTab(user='root')
         for job in cron:
             if job.comment == 'RAL FTP':
                 if job.is_enabled():
-                    self.backup_toggle = 'true'
-                break
+                    self.backup_toggle = True
+            elif job.comment == 'chords':
+                self.chords_toggle = job.is_enabled()
         self.InitUI()
         self.SetTitle("Backup Menu")
 
@@ -63,7 +62,7 @@ class ChangeChords(wx.Dialog):
         toggle_section.Add(wx.StaticText(panel, label="CHORDS"), flag=wx.ALL, border=10)
         toggle_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=42)
         self.toggle = wx.ToggleButton(panel, label="")
-        if self.chords_toggle.lower() == "true":
+        if self.chords_toggle:
             self.toggle.SetLabel("On")
             self.toggle.SetValue(True)
         else:
@@ -80,7 +79,7 @@ class ChangeChords(wx.Dialog):
         backup_section.Add(wx.StaticText(panel, label="RAL Backup"), flag=wx.ALL, border=10)
         backup_section.Add(wx.StaticText(panel, label=""), flag=wx.RIGHT, border=20)
         self.backup = wx.ToggleButton(panel, label="")
-        if self.backup_toggle.lower() == "true":
+        if self.backup_toggle:
             self.backup.SetLabel("On")
             self.backup.SetValue(True)
         else:
@@ -119,20 +118,20 @@ class ChangeChords(wx.Dialog):
 
 
     def OnChordsToggle(self, e):
-        if self.chords_toggle == "false":
-            self.chords_toggle = "true"
+        if not self.chords_toggle:
+            self.chords_toggle = True
             self.toggle.SetLabel("On")
         else:
-            self.chords_toggle = "false"
+            self.chords_toggle = False
             self.toggle.SetLabel("Off")
 
 
     def OnBackupToggle(self, e):
-        if self.backup_toggle == "false":
-            self.backup_toggle = "true"
+        if not self.backup_toggle:
+            self.backup_toggle = True
             self.backup.SetLabel("On")      
         else:
-            self.backup_toggle = "false"
+            self.backup_toggle = False
             self.backup.SetLabel("Off")
 
 
@@ -163,7 +162,7 @@ class ChangeChords(wx.Dialog):
 
     def OnSave(self, e):
         with open("/home/pi/Desktop/variables.txt", 'w') as file:
-            file.write(self.record_interval + "," + self.chords_interval + "," + self.chords_toggle + "," + str(int(self.chords_id)) + "," + self.chords_link + "," + self.pressure_level + "," + self.test_toggle + "," + str(self.altitude))
+            file.write(self.test_toggle + "," + str(int(self.chords_id)) + "," + self.chords_link + "," + self.pressure_level + "," + str(self.altitude))
         with open("/home/pi/ral_backup", 'r+') as file:
             file.truncate(0)
             file.write("connect ftp://ftp.rap.ucar.edu")
@@ -171,12 +170,10 @@ class ChangeChords(wx.Dialog):
         cron = CronTab(user='root')
         for job in cron:
             if job.comment == "RAL FTP":
-                if self.backup_toggle == "true":
-                    job.enable()              
-                else:
-                    job.enable(False)
-                cron.write()
-                break
+                job.enable(self.backup_toggle)              
+            elif job.comment == "chords":
+                job.enable(self.chords_toggle)
+            cron.write()
         self.Destroy()
 
 

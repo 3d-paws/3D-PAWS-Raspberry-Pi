@@ -124,7 +124,7 @@ def main():
         print()
         #cron
         print("Updating cron...")
-        run_command("sudo python3 " + path + "/environment.py")
+        run_command("sudo python3 " + path + "/scripts/upkeep/environment.py")
         print("Cron successfully updated.")
         print()
         #finish

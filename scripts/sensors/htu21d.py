@@ -6,7 +6,7 @@
 # Email: pkucera@ucar.edu and jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
-import sys
+import sys, time
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import board, busio, helper_functions
 from adafruit_htu21d import HTU21D
@@ -16,18 +16,13 @@ try:
 	sensor = HTU21D(i2c)
 
 	#Get arguments
-	arguments = helper_functions.getArguments()
-	wait = arguments[0]
-	test_mode = arguments[6]
+	variables = helper_functions.getVariables()
+	test_mode = variables[0]
+	interval = helper_functions.getCron()[0]
+	iterations = (interval*6)-1 # runs every 10 seconds over the interval, minus the last 10 seconds
 
-	#Handle test mode
-	target = 1
-	if test_mode == "true":
-		target = (60/wait)-1
-		import time
-
-	iterations = 0
-	while iterations < target:
+	# Run once... or if in test mode, run every 10 seconds during the interval
+	for x in range (0,iterations):
 		tempC = sensor.temperature
 		tempF = tempC*1.8+32
 		rh = sensor.relative_humidity
@@ -43,9 +38,11 @@ try:
 		line = '%.2f %.2f' % (tempC, rh)
 		helper_functions.output(False, line, "htu21d")
 
-		iterations += 1
+		# Wait 10 seconds and repeat if in test mode
 		if test_mode == "true":
-			time.sleep(wait)
+			time.sleep(10)
+		else:
+			break
 
 except Exception as e:
 	helper_functions.handleError(e, "htu21d")

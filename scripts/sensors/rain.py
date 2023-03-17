@@ -11,23 +11,23 @@ import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import RPi.GPIO as GPIO, time, os, helper_functions
 
-# Get arguments
-arguments = helper_functions.getArguments()
-record_interval = arguments[0]
-chords_interval = arguments[1]
-test_toggle = arguments[6]
+#Get variables
+variables = helper_functions.getVariables()
+test_toggle = variables[0]
+interval = helper_functions.getCron()[0]
 
 # Set rest interval based on if we're testing or not
 test = True
 if len(sys.argv) > 1:
 	rest = int(sys.argv[1])
-elif os.isatty(sys.stdin.fileno()):
-	rest = 60*record_interval
-elif test_toggle == "true":
-	rest = record_interval
+	iterations = (interval*60/rest)-1
+elif os.isatty(sys.stdin.fileno()) or test_toggle == "true":
+	rest = 10
+	iterations = (interval*6)-1
 else:
 	test = False
-	rest = 60*record_interval
+	rest = 60*interval - 1
+	iterations = 1
 
 # Rainfall Accumulation in mm per bucket tip (TB3 Specs)
 CALIBRATION = 0.2
@@ -52,11 +52,9 @@ GPIO.add_event_detect(PIN, GPIO.FALLING, callback=tipped, bouncetime=300)
 
 print("Rain (tipping bucket) Sensor")
 
-# Main loop
-while True:
-	# Wait until the interval has passed and run again
+# Run once... or if in test mode, run every 10 seconds during the interval
+for x in range (0, iterations):
 	time.sleep(rest)
-
 	try:
 		# Handle script output
 		line = "%.2f" % (rain)		
@@ -66,7 +64,10 @@ while True:
 			helper_functions.output(True, line, "rain")
 
 		# Reset rain
-		rain = 0.0
+		if test:
+			rain = 0.0
+		else:
+			break
 
 	except Exception as e:
 		helper_functions.handleError(e, "rain")

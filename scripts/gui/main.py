@@ -17,42 +17,31 @@ import helper_functions, wx, barometric_menu, interval_menu, backup_menu, relay_
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
-    "BMP/BME":wx.Window.NewControlId(),
-    "HTU21D":wx.Window.NewControlId(),
-    "MCP9808":wx.Window.NewControlId(),
-    "SI1145":wx.Window.NewControlId(),
-    "Tipping Bucket":wx.Window.NewControlId(),
-    "Wind Direction":wx.Window.NewControlId(),
-    "Wind Speed":wx.Window.NewControlId()
+    "BMP/BME sensor":wx.Window.NewControlId(),
+    "HTU21D sensor":wx.Window.NewControlId(),
+    "MCP9808 sensor":wx.Window.NewControlId(),
+    "SI1145 sensor":wx.Window.NewControlId(),
+    "Tipping Bucket sensor":wx.Window.NewControlId(),
+    "Wind Direction sensor":wx.Window.NewControlId(),
+    "Wind Speed sensor":wx.Window.NewControlId()
 }
-    #"Remote Stations":wx.Window.NewControlId()
 
 # Used to give each data button a referenceable id
 DATA_IDS = {
-    "BMP/BME":wx.Window.NewControlId(),
-    "HTU21D":wx.Window.NewControlId(),
-    "MCP9808":wx.Window.NewControlId(),
-    "SI1145":wx.Window.NewControlId(),
-    "Tipping Bucket":wx.Window.NewControlId(),
-    "Wind Direction":wx.Window.NewControlId(),
-    "Wind Speed":wx.Window.NewControlId()
+    "BMP/BME sensor":wx.Window.NewControlId(),
+    "HTU21D sensor":wx.Window.NewControlId(),
+    "MCP9808 sensor":wx.Window.NewControlId(),
+    "SI1145 sensor":wx.Window.NewControlId(),
+    "Tipping Bucket sensor":wx.Window.NewControlId(),
+    "Wind Direction sensor":wx.Window.NewControlId(),
+    "Wind Speed sensor":wx.Window.NewControlId()
 }
-    #"Remote Stations":wx.Window.NewControlId()
-
-# List of sensors that require a restart to toggle on/off
-RESTART_REQUIRED = [
-    "Tipping Bucket",
-    "Wind Direction",
-    "Wind Speed"
-]
 
 # Create UI
 class Window(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(Window, self).__init__(*args, **kwargs)
-        self.restart = False
         self.remote_station = False
-        self.restart_list = []
         self.active_sensors = []
         self.InitMenu()
         self.InitUI()
@@ -62,19 +51,21 @@ class Window(wx.Frame):
 
     def SetStatusBar(self):
         # Get user vairables from file and show them in status bar
-        self.inputs = helper_functions.getArguments()
-        self.status_bar.SetStatusText(str(self.inputs[7]) + " m", 1)
+        self.inputs = helper_functions.getVariables()
+        self.cron = helper_functions.getCron()
         # Handle interval
         time = "min"
-        if self.inputs[6] == "true":
+        if self.inputs[0] == "true":
             time = "sec"
-        self.status_bar.SetStatusText("Record: " + str(self.inputs[0]) + " " + time, 2)
+        self.status_bar.SetStatusText("Record: " + str(self.cron[0]) + " " + time, 1)
         # Handle chords
-        if self.inputs[2] == "true":
-            self.status_bar.SetStatusText("CHORDS: " + str(self.inputs[1]) + " min (on)", 3)
-        else:
-            self.status_bar.SetStatusText("CHORDS: " + str(self.inputs[1]) + " min (off)", 3)
-        self.status_bar.SetStatusText("ID: " + str(self.inputs[3]), 4)
+        on_off = "on"
+        if not self.cron[2]:
+            on_off = "off"
+        self.status_bar.SetStatusText("CHORDS: " + str(self.cron[1]) + " min (" + on_off + ")", 2)
+        self.status_bar.SetStatusText("ID: " + str(self.inputs[1]), 3)
+        # Handle altitude
+        self.status_bar.SetStatusText(str(self.inputs[4]) + " m", 4)
 
 
     def InitMenu(self):
@@ -99,8 +90,6 @@ class Window(wx.Frame):
 
 
     def InitUI(self):
-        # Bind onQuit function to when the window is closed
-        self.Bind(wx.EVT_CLOSE, self.OnQuit)
         # Setup the window
         panel = wx.Panel(self)
         # Setup the scrolling panel
@@ -113,31 +102,23 @@ class Window(wx.Frame):
         sorted_sensors = sorted(SENSOR_IDS.items(), key=lambda x: x[1], reverse=True)
         for sensor in sorted_sensors:
             self.AddRow(scrolled_panel, sizer, sensor[0])
-        # Set alert if the system needs to be restarted
-        self.restart_alert = wx.StaticText(scrolled_panel, label="")
-        self.restart_alert.SetForegroundColour(wx.Colour(255,0,0))
-        sizer.Add(self.restart_alert, flag=wx.LEFT, border=60)
         # Create button area
         button_area = wx.BoxSizer(wx.HORIZONTAL)
         # Create Start All button
-        start_all_button = wx.Button(scrolled_panel, label="Start All")
-        button_area.Add(start_all_button, flag=wx.LEFT, border=20)
+        start_all_button = wx.Button(scrolled_panel, label="Start All", size=((80, 40)))
+        button_area.Add(start_all_button, flag=wx.LEFT, border=340)
         self.Bind(wx.EVT_BUTTON, self.StartAllSensors, id=start_all_button.GetId())
         # Create Stop All button
-        stop_all_button = wx.Button(scrolled_panel, label="Stop All")
+        stop_all_button = wx.Button(scrolled_panel, label="Stop All", size=((80, 40)))
         button_area.Add(stop_all_button, flag=wx.LEFT, border=10)
         self.Bind(wx.EVT_BUTTON, self.StopAllSensors, id=stop_all_button.GetId())
-        # Create Restart button
-        restart_button = wx.Button(scrolled_panel, label="Restart")
-        button_area.Add(restart_button, flag=wx.LEFT, border=215)
-        self.Bind(wx.EVT_BUTTON, self.ConfirmRestart, id=restart_button.GetId())
         # Add space to the right of the buttons
         button_area.AddSpacer(25)
         # Add button area to window
         sizer.Add(button_area, flag=wx.TOP, border=10)
         # Initialize the status bar
         self.status_bar = self.CreateStatusBar(5)
-        self.status_bar.SetStatusWidths([0, -3, -3, -5, -2])
+        self.status_bar.SetStatusWidths([0, -3, -5, -2, -3])
         self.SetStatusBar()
         # Finalize
         scrolled_panel.SetSizer(sizer)
@@ -151,7 +132,8 @@ class Window(wx.Frame):
     def AddRow(self, panel, sizer, text):
         row = wx.BoxSizer(wx.HORIZONTAL)
         # Add text
-        sensor_name = wx.StaticText(panel, label=text)
+        sensor = text.replace(" sensor", "")
+        sensor_name = wx.StaticText(panel, label=sensor)
         sensor_name.SetFont(wx.Font(12, wx.DECORATIVE, wx.NORMAL, wx.NORMAL))
         row.Add(sensor_name, 2, flag=wx.ALL, border=20)
         # Create button area
@@ -165,7 +147,7 @@ class Window(wx.Frame):
         label = "Off"
         cron = CronTab(user='root')
         for job in cron:
-            if job.comment == text:
+            if text in job.comment:
                 status = job.is_enabled()
                 if status:
                     label = "On"
@@ -224,7 +206,7 @@ class Window(wx.Frame):
         sensor = [key for (key, value) in SENSOR_IDS.items() if value == e.GetId()][0]
         cron = CronTab(user='root')
         for job in cron:
-            if job.comment == sensor:
+            if sensor in job.comment:
                 if button.GetValue() == True:
                     button.SetLabel("On")
                     job.enable()
@@ -245,7 +227,6 @@ class Window(wx.Frame):
                         self.remote_station = False
                 cron.write()
                 break
-        self.RestartCheck(sensor)
 
     
     def StartAllSensors(self, e):
@@ -265,7 +246,6 @@ class Window(wx.Frame):
                     f = open(logs + 'remote_stations_check',"w+")
                     f.close()
                     os.system('sudo ' + scripts + 'comms/rf95/remote_stations_server -d')
-                self.RestartCheck(sensor)
         cron.write()
         self.remote_station = True
 
@@ -287,63 +267,8 @@ class Window(wx.Frame):
                     if os.path.exists(logs + 'remote_stations_check'):
                         os.remove(logs + 'remote_stations_check')
                     os.system('sudo pkill -f remote_stations_server')
-                self.RestartCheck(sensor)
         cron.write()
         self.remote_station = False
-
-
-    def RestartCheck(self, sensor):
-        # If a sensor that requires a restart is turned on/off, tell the user
-        if sensor in RESTART_REQUIRED:
-            if sensor in self.restart_list:
-                # If the sensor is returning to its original state, remove note
-                self.restart_list.remove(sensor)
-                if len(self.restart_list) == 0:
-                    self.restart = False
-                    self.restart_alert.SetLabel("")
-            else:
-                # Otherwise, let user know
-                self.restart_list.append(sensor)
-                self.restart = True
-                self.restart_alert.SetLabel("You need to restart in order for the changes to take effect.")
-
-
-    def ConfirmRestart(self, e):
-        if not self.restart:
-            dial = wx.MessageDialog(None, 'Are you sure you want to restart the pi? None of the selected sensors require it.', 'Confirm Restart', wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
-            ret = dial.ShowModal()
-            if ret == wx.ID_YES:
-                if self.remote_station:
-                    self.Reminder()
-                else:
-                    os.system('sudo shutdown -r now')
-        else:
-            if self.remote_station:
-                self.Reminder()
-            else:
-                os.system('sudo shutdown -r now')
-    
-
-    def OnQuit(self, e):
-        if self.restart:
-            # If the user is trying to quit but a restart is required
-            dial = wx.MessageDialog(None, "Some of your selected sensors require a restart. Would you like to do so now? (Otherwise, those sensors won't be activated.)", 'Restart Recommended', wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
-            ret = dial.ShowModal()
-            if ret == wx.ID_YES:
-                if self.remote_station:
-                    self.Reminder()
-                else:
-                    os.system('sudo shutdown -r now')
-            else:
-                # If the UI is closed without restarting, sensors that require a restart will be turned off.
-                cron = CronTab(user='root')
-                for job in cron:
-                    if job.comment in RESTART_REQUIRED:
-                        job.enable(False)
-                cron.write()
-                self.Destroy()
-        else:
-            self.Destroy()
 
 
     def Reminder(self):

@@ -8,17 +8,18 @@
 
 import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import board, busio, helper_functions
+import board, busio, helper_functions, time
 
 try:
-	#Get arguments
-	arguments = helper_functions.getArguments()
-	wait = arguments[0]
-	pressure_level = arguments[5]
-	test_mode = arguments[6]
-	altitude = arguments[7]
+	# Get variables
+	variables = helper_functions.getVariables()
+	test_mode = variables[0]
+	pressure_level = variables[3]
+	altitude = variables[4]
+	interval = helper_functions.getCron()[0]
+	iterations = (interval*6)-1 # runs every 10 seconds over the interval, minus the last 10 seconds
 
-	#Initialize correct sensor
+	# Initialize correct sensor
 	which_sensor = False
 	try:
 		import adafruit_bmp280
@@ -31,21 +32,14 @@ try:
 		bme = adafruit_bme280.Adafruit_BME280_I2C(i2c)
 		which_sensor = "bme"
 
-	#Handle test mode
-	target = 1
-	if test_mode == "true":
-		target = (60/wait)-1
-		import time
-
-	iterations = 0
-	while iterations < target:
-		#Get and calculate data
+	# Run once... or if in test mode, run every 10 seconds during the interval
+	for x in range (0,iterations):
+		# Get and calculate data
 		if which_sensor == "bmp":
 			bmp.sea_level_pressure = pressure_level
 			tempC = bmp.temperature
 			pressure = bmp.pressure
 		else:
-			altitude = arguments[5]
 			tempC = bme.temperature
 			pressure = bme.pressure
 			humidity = bme.humidity
@@ -75,9 +69,11 @@ try:
 			line = "%.2f %.2f %.2f %.2f %.2f" % (tempC, station_pres, slp, altitude, humidity)
 		helper_functions.output(False, line, which_sensor)
 
-		iterations += 1
+		# Wait 10 seconds and repeat if in test mode
 		if test_mode == "true":
-			time.sleep(wait)
+			time.sleep(10)
+		else:
+			break
 
 except Exception as e:
 	if which_sensor:

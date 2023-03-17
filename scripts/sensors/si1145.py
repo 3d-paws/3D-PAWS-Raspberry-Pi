@@ -18,7 +18,7 @@
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 
-import sys
+import sys, time
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import SI1145.SI1145 as SI1145, helper_functions
 
@@ -27,18 +27,13 @@ try:
 	sensor = SI1145.SI1145()
 
 	#Get arguments
-	arguments = helper_functions.getArguments()
-	wait = arguments[0]
-	test_mode = arguments[6]
+	variables = helper_functions.getVariables()
+	test_mode = variables[0]
+	interval = helper_functions.getCron()[0]
+	iterations = (interval*6)-1 # runs every 10 seconds over the interval, minus the last 10 seconds
 
-	#Handle test mode
-	target = 1
-	if test_mode == "true":
-		target = (60/wait)-1
-		import time
-
-	iterations = 0
-	while iterations < target:
+	# Run once... or if in test mode, run every 10 seconds during the interval
+	for x in range (0,iterations):
 		# Run the code
 		vis = sensor.readVisible()
 		IR = sensor.readIR()
@@ -56,9 +51,11 @@ try:
 		line = "%.2f %.2f %.2f" % (vis, IR, UV)
 		helper_functions.output(False, line, "si1145")
 
-		iterations += 1
+		# Wait 10 seconds and repeat if in test mode
 		if test_mode == "true":
-			time.sleep(wait)
+			time.sleep(10)
+		else:
+			break
 
 except Exception as e:
 	helper_functions.handleError(e, "si1145")

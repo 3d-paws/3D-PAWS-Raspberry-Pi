@@ -8,7 +8,7 @@
 
 import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import spidev, time, datetime, RPi.GPIO as GPIO, helper_functions
+import spidev, time, RPi.GPIO as GPIO, helper_functions
 spi = spidev.SpiDev()
 spi.open(0, 0)
 spi.max_speed_hz = 1000000
@@ -22,13 +22,13 @@ def analog_read(spi):
 	return adc_data
 
 
-def run(test):
+def run(command):
 	print("Wind Direction Sensor - Analog")
 
-	# Get inputs
-	arguments = helper_functions.getArguments()
-	record_interval = arguments[0]
-	test_toggle = arguments[6]
+	#Get variables
+	variables = helper_functions.getVariables()
+	test_toggle = variables[0]
+	interval = helper_functions.getCron()[0]
 
 	# Set up sensors
 	spi = spidev.SpiDev()
@@ -42,22 +42,23 @@ def run(test):
 	ADC_max = 920
 	ADC_range = ADC_max - ADC_min
 
-	# Check if this is a test (1) or real (0) and set interval appropriately
-	command_test = False
-	if test == 1:
-		rest = 1
-		command_test = True
-	elif test_toggle == "true":
-		rest = record_interval
-		command_test = True
+	# Check if this is a test and set samples appropriately
+	test = True
+	if len(sys.argv) > 1:
+		samples = int(sys.argv[1])
+		iterations = (interval*60/samples)-1
+	elif command == 1 or test_toggle == "true":
+		samples = 10
+		iterations = (interval*6)-1
 	else:
-		rest = 60*record_interval
+		test = False
+		samples = 60*interval - 1
+		iterations = 1
 
-	# Read wind sensor data every second
-	while True:
+	# Run once... or if in test mode, run every 10 seconds during the interval
+	for i in range (0, iterations):
 		try:
-			# Report average either every minute or every second (if testing)
-			for x in range (0, rest):
+			for x in range (0, samples):
 				# Read the channel
 				reading = analog_read(spi)
 
@@ -75,7 +76,7 @@ def run(test):
 				if x == 0:
 					wnddir_sum = wnddir
 					wnddir_prev = wnddir
-				elif x < rest-1:
+				elif x < samples-1:
 					delta_wnd = wnddir - wnddir_prev
 					# Assign the next value
 					if delta_wnd < -180.0:
@@ -89,25 +90,21 @@ def run(test):
 						wnddir_prev = wnddir_prev + delta_wnd - 360.0
 					else:
 						print("delta wind is 180 deg, undefined and not used")
-				if x == rest-1:
-					wnddir_avg = wnddir_sum/rest
+				elif x == samples-1:
+					wnddir_avg = wnddir_sum/samples
 					if wnddir_avg > 360.0:
 						wnddir_avg = 360.0
 					if wnddir_avg < 0.0:
 						wnddir_avg = 0.0
-						
-					# Get current time for writing to file
-					now = datetime.datetime.utcnow()
 
 					# Handle script output
 					line = "%d %.2f %.2f" % (reading, wnddir, wnddir_avg)		
-					if command_test:
-						helper_functions.output(True, line, "test-wind_direction")
+					if test:
+						helper_functions.output(True, line, "test_wind_direction")
 					else:
 						helper_functions.output(True, line, "wind_direction")
 
-					# Wait until a second has passed since current run began, and run again
-					time.sleep(rest)
+					time.sleep(1)
 		
 		except Exception as e:
 			helper_functions.handleError(e, "wind_direction")

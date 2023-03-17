@@ -10,22 +10,23 @@ import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import RPi.GPIO as GPIO, time, helper_functions, os 
 
-# Get inputs
-arguments = helper_functions.getArguments()
-record_interval = arguments[0]
-test_toggle = arguments[6]
+#Get variables
+variables = helper_functions.getVariables()
+test_toggle = variables[0]
+interval = helper_functions.getCron()[0]
 
-# Check if this is a test (1) or real (0) and set interval appropriately
+# Set rest interval based on if we're testing or not
 test = True
 if len(sys.argv) > 1:
 	rest = int(sys.argv[1])
-elif os.isatty(sys.stdin.fileno()):
-	rest = 60*record_interval
-elif test_toggle == "true":
-	rest = record_interval
+	iterations = (interval*60/rest)-1
+elif os.isatty(sys.stdin.fileno()) or test_toggle == "true":
+	rest = 10
+	iterations = (interval*6)-1
 else:
 	test = False
-	rest = 60*record_interval
+	rest = 60*interval - 1
+	iterations = 1
 
 # Number of sensors in anemometer
 SENSOR_NUM = 2
@@ -54,8 +55,8 @@ GPIO.add_event_detect(PIN, GPIO.FALLING, callback=cb, bouncetime=1)
 
 print("Wind Speed Sensor")
 
-# Display and write data to file and send to CHORDS
-while True:
+# Run once... or if in test mode, run every 10 seconds during the interval
+for x in range (0, iterations):
 	time.sleep(rest)
 	try:
 		if wind > 0:
@@ -66,11 +67,15 @@ while True:
 		# Handle script output
 		line = "%.4f" % (wind_spd)	
 		if test:
-			helper_functions.output(True, line, "test-wind_speed")
+			helper_functions.output(True, line, "test_wind_speed")
 		else:
 			helper_functions.output(True, line, "wind_speed")
 
-		wind = 0
+		# Reset wind
+		if test:
+			wind = 0
+		else:
+			break
 
 	except Exception as e:
 		helper_functions.handleError(e, "wind_speed")

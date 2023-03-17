@@ -8,33 +8,34 @@
 
 import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import smbus, math, time, datetime, helper_functions
+import smbus, math, time, helper_functions
 
-def run(bus, address, test):
+def run(bus, address, command):
     print("Wind Direction Sensor - i2c")
 
-    # Get inputs
-    arguments = helper_functions.getArguments()
-    record_interval = arguments[0]
-    test_toggle = arguments[6]
+    #Get variables
+    variables = helper_functions.getVariables()
+    test_toggle = variables[0]
+    interval = helper_functions.getCron()[0]
 
-    # Check if this is a test (1) or real (0) and set interval appropriately
-    command_test = False
-    if test == 1:
-        rest = 1
-        command_test = True
-    elif test_toggle == "true":
-        rest = record_interval
-        command_test = True
+    # Check if this is a test and set interval appropriately
+    test = True
+    if len(sys.argv) > 1:
+        samples = int(sys.argv[1])
+        iterations = (interval*60/samples)-1
+    elif command == 1 or test_toggle == "true":
+        samples = 10
+        iterations = (interval*6)-1
     else:
-        rest = 60*record_interval
+        test = False
+        samples = 60*interval - 1
+        iterations = 1
 
-    # Read sensor each second
-    while True:
+    # Run once... or if in test mode, run every 10 seconds during the interval
+    for i in range (0, iterations):
         try:
             total = 0
-            for x in range (0, rest):
-                then = float(time.time())
+            for x in range (0, samples):
                 # Get low and hi angles
                 high = bus.read_byte_data(address, 0x0c)
                 low = bus.read_byte_data(address, 0x0d)
@@ -54,22 +55,15 @@ def run(bus, address, test):
                 # Add to total to be averaged later
                 total += angle
 
-                # Wait until a second has passed since current run began, and run again
-                now = float(time.time())
-                diff = now-then
-                sleep_time = 1-diff
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # Wait
+                time.sleep(1)
 
             # Calculate average wind direction
-            average = total/rest
-
-            # Get current time for writing to file
-            now = datetime.datetime.utcnow()
+            average = total/samples
 
             # Handle script output
             line = "%.2f %.2f" % (angle, average)
-            if command_test:
+            if test:
                 helper_functions.output(True, line, "test_wind_direction")
             else:
                 helper_functions.output(True, line, "wind_direction")
