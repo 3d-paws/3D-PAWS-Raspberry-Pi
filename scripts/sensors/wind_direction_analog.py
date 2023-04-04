@@ -97,15 +97,16 @@ def run(command):
 					if wnddir_avg < 0.0:
 						wnddir_avg = 0.0
 
-					# Handle script output
-					line = "%d %.2f %.2f" % (reading, wnddir, wnddir_avg)		
-					if test:
-						helper_functions.output(True, line, "test_wind_direction")
-					else:
-						helper_functions.output(True, line, "wind_direction")
+				time.sleep(1)
 
-					time.sleep(1)
+			# Handle script output
+			line = "%d %.2f %.2f" % (reading, wnddir, wnddir_avg)		
+			if test:
+				helper_functions.output(True, line, "test_wind_direction")
+			else:
+				helper_functions.output(True, line, "wind_direction")
 		
+
 		except Exception as e:
 			helper_functions.handleError(e, "wind_direction")
 			GPIO.cleanup()
