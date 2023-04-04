@@ -8,11 +8,18 @@
 
 import smbus, wind_direction_analog, wind_direction_i2c
 
-try:
-    bus = smbus.SMBus(0)
-    address = 0x36
-    test = bus.read_byte_data(address, 0x0c)
-    wind_direction_i2c.run(bus, address, 0)
-except:
-    wind_direction_analog.run(0)
-    
+def run(test):
+    try:
+        bus = smbus.SMBus(0)
+        address = 0x36
+        test = bus.read_byte_data(address, 0x0c)
+        wind_direction_i2c.run(bus, address, test)
+    except:
+        wind_direction_analog.run(test)
+
+
+#run the function as a test if this script is ran from the command line
+if __name__ == "__main__":
+    run(1)
+else:
+    run(0)
