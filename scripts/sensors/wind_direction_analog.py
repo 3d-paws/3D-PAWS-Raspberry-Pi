@@ -46,7 +46,7 @@ def run(command):
 	test = True
 	if len(sys.argv) > 1:
 		samples = int(sys.argv[1])
-		iterations = (interval*60/samples)-1
+		iterations = int((interval*60/samples)-1)
 	elif command == 1 or test_toggle == "true":
 		samples = 10
 		iterations = (interval*6)-1
