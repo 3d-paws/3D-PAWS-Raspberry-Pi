@@ -112,6 +112,29 @@ def create_filename(folder, file):
 	return filename
 
 
+# Set rest interval for test mode
+def getTest(command=0):
+	# Defaults
+	test = True
+	iterations = 100
+	# Get Variables
+	interval = getCron()[0]
+	test_toggle = getVariables()[0]
+	# Check what kind of testing this is
+	if len(sys.argv) > 1: 
+		rest = int(sys.argv[1])
+	elif os.isatty(sys.stdin.fileno()):
+		rest = 10
+	elif test_toggle == "true":
+		rest = 10
+		iterations = (interval*6)-1
+	else:
+		test = False
+		rest = 60*interval - 1
+		iterations = 1
+	return [test, rest, iterations]
+
+
 # Format and print errors
 def handleError(e, sensor):
 	now = datetime.datetime.utcnow()

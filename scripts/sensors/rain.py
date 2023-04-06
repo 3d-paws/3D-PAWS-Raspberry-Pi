@@ -9,25 +9,10 @@
 
 import sys
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
-import RPi.GPIO as GPIO, time, os, helper_functions
-
-#Get variables
-variables = helper_functions.getVariables()
-test_toggle = variables[0]
-interval = helper_functions.getCron()[0]
+import RPi.GPIO as GPIO, time, helper_functions
 
 # Set rest interval based on if we're testing or not
-test = True
-if len(sys.argv) > 1:
-	rest = int(sys.argv[1])
-	iterations = int((interval*60/rest)-1)
-elif os.isatty(sys.stdin.fileno()) or test_toggle == "true":
-	rest = 10
-	iterations = (interval*6)-1
-else:
-	test = False
-	rest = 60*interval - 1
-	iterations = 1
+test, rest, iterations = helper_functions.getTest()
 
 # Rainfall Accumulation in mm per bucket tip (TB3 Specs)
 CALIBRATION = 0.2

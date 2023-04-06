@@ -84,7 +84,7 @@ if test_toggle == "false":
             
     wind_direction = checkFile("wind_direction")
     if wind_direction:
-        data[16] = float(wind_direction[6])
+        data[16] = float(wind_direction[5])
         if data[16] != -999.99:  
             url += "&wind_direction=%05.1f" % (data[16])
 
