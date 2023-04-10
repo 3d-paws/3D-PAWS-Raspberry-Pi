@@ -149,14 +149,14 @@ class ChangeChords(wx.Dialog):
     
     def OnLinkEdit(self, e):
         value = self.link_input.GetValue()
-        if ".com" in value or ".gov" in value or ".org" in value:
+        if ".com" in value or ".gov" in value or ".org" in value or ".edu" in value:
             if value[-1] == "/":
                 value = value[:-1]
             self.chords_link = value
             self.alert.SetLabel("")
             self.saveButton.Enable(True)
         else:
-            self.alert.SetLabel("Link needs to end in .com, .gov, or .org")
+            self.alert.SetLabel("Link is invalid")
             self.saveButton.Enable(False)
 
 
