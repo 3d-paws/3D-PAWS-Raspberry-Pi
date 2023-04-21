@@ -11,7 +11,7 @@ import datetime, re, sys, os
 # Get script arguments
 def getVariables():
 	# Open the variables file, or make it if it doesn't exist
-	variable_path = "/home/pi/Desktop/variables.txt" 
+	variable_path = "/home/pi/Desktop/variables.txt" #variables = "false,0,3d.chordsrt.com,1013.25,100000.0" -> test_toggle, chords_id, link, pressue_level, altitude
 	if not os.path.exists(variable_path):
 		with open(variable_path, 'w') as file:
 			file.write("false,0,3d.chordsrt.com,1013.25,false,100000.0")
@@ -113,7 +113,7 @@ def create_filename(folder, file):
 
 
 # Set rest interval for test mode
-def getTest(command=0):
+def getTest():
 	# Defaults
 	test = True
 	iterations = 100

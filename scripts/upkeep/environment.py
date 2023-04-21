@@ -12,35 +12,9 @@ sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import helper_functions
 cron = CronTab(user='root')
 root_path = "/home/pi/3d_paws/scripts/"
-variables = "false,0,3d.chordsrt.com,1013.25,100000.0" #test_toggle, chords_id, link, pressue_level, altitude
-#was: record_interval, chords_interval, chords_toggle, chords_id, link, pressue_level, test_toggle, altitude
 
 
-#Check for variables.txt, and create it if it doesn't exist
-print("Checking for variables.txt...")
-variable_path = "/home/pi/Desktop/variables.txt" 
-auto_on = False #if the update is from a version with 8 input variables AND chords is on, then automatically turn on all sensors
-if os.path.exists(variable_path):
-    with open(variable_path, 'r') as file:
-        data = file.readline().split(",")
-    if len(data) != 5:
-        print("Updating variables.txt...")
-        auto_on = True if data[2] == "true" else False
-        new_data = data[6] + "," + data[3] + "," + data[4] + "," + data[5] + "," + data[7]
-        with open(variable_path, 'w') as file:
-            file.write(new_data)
-        print("File successfully updated.")
-    else:
-        print("File already up-to-date.")
-else:
-    print("Creating variables.txt...")
-    with open(variable_path, 'w') as file:
-        file.write(variables)
-    os.chmod(variable_path, 0o777)
-    print("File successfully created.")
-print()
-
-
+#check cron
 print("Checking cron...")
 active = []
 report_interval = 1
@@ -85,44 +59,44 @@ report.set_comment("report")
 chords = cron.new(command='python3 ' + root_path + 'upkeep/chords.py >> /tmp/chords.log 2>&1')
 chords.minute.every(chords_interval)
 chords.set_comment("chords")
-chords.enable(True if "chords" in active or auto_on else False)
+chords.enable(True if "chords" in active else False)
 
 
 #sensor crons
 bm = cron.new(command='python3 ' + root_path + 'sensors/bmp_bme.py >> /tmp/bmp.log 2>&1')
 bm.minute.every(report_interval)
 bm.set_comment("BMP/BME sensor")
-bm.enable(True if "BMP/BME sensor" in active or auto_on else False)
+bm.enable(True if "BMP/BME sensor" in active else False)
 
 htu = cron.new(command='python3 ' + root_path + 'sensors/htu21d.py >> /tmp/htu21d.log 2>&1')
 htu.minute.every(report_interval)
 htu.set_comment("HTU21D sensor")
-htu.enable(True if "HTU21D sensor" in active or auto_on else False)
+htu.enable(True if "HTU21D sensor" in active else False)
 
 mcp = cron.new(command='python3 ' + root_path + 'sensors/mcp9808.py >> /tmp/mcp9808.log 2>&1')
 mcp.minute.every(report_interval)
 mcp.set_comment("MCP9808 sensor")
-mcp.enable(True if "MCP9808 sensor" in active or auto_on else False)
+mcp.enable(True if "MCP9808 sensor" in active else False)
 
 si = cron.new(command='python3 ' + root_path + 'sensors/si1145.py >> /tmp/si1145.log')
 si.minute.every(report_interval)
 si.set_comment("SI1145 sensor")
-si.enable(True if "SI1145 sensor" in active or auto_on else False)
+si.enable(True if "SI1145 sensor" in active else False)
 
 rain = cron.new(command='python3 ' + root_path + 'sensors/rain.py >> /tmp/rain.log 2>&1')
 rain.minute.every(report_interval)
 rain.set_comment("Tipping Bucket sensor")
-rain.enable(True if "Tipping Bucket sensor" in active or auto_on else False)
+rain.enable(True if "Tipping Bucket sensor" in active else False)
 
 wind_dir = cron.new(command='python3 ' + root_path + 'sensors/wind_direction.py >> /tmp/wind_direction.log 2>&1')
 wind_dir.minute.every(report_interval)
 wind_dir.set_comment("Wind Direction sensor")
-wind_dir.enable(True if "Wind Direction sensor" in active or auto_on else False)
+wind_dir.enable(True if "Wind Direction sensor" in active else False)
 
 wind_spd = cron.new(command='python3 ' + root_path + 'sensors/wind_speed.py >> /tmp/wind_speed.log 2>&1')
 wind_spd.minute.every(report_interval)
 wind_spd.set_comment("Wind Speed sensor")
-wind_spd.enable(True if "Wind Speed sensor" in active or auto_on else False)
+wind_spd.enable(True if "Wind Speed sensor" in active else False)
 
 
 #Write the cron and print it
