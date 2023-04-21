@@ -33,7 +33,7 @@ wind = 0
 # Call back function for each wind sensor reading
 def cb(channel):
 	global wind
-	wind = wind + 1
+	wind += 1
 					
 # Register the call back for pin interrupts
 GPIO.add_event_detect(PIN, GPIO.FALLING, callback=cb, bouncetime=1)
@@ -44,10 +44,7 @@ print("Wind Speed Sensor")
 for x in range (0, iterations):
 	time.sleep(rest)
 	try:
-		if wind > 0:
-			wind_spd = wind*SCALE
-		else:
-			wind_spd = 0.0
+		wind_spd = wind*SCALE
 
 		# Handle script output
 		line = "%.4f" % (wind_spd)	
@@ -56,11 +53,7 @@ for x in range (0, iterations):
 		else:
 			helper_functions.output(True, line, "wind_speed")
 
-		# Reset wind
-		if test:
-			wind = 0
-		else:
-			break
+		wind = 0
 
 	except Exception as e:
 		helper_functions.handleError(e, "wind_speed")
