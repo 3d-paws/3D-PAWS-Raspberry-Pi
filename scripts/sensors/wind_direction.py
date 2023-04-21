@@ -40,9 +40,6 @@ def i2c(bus, address):
     # Adjust if necessary
     if angle < 0:
         angle = 360 + angle
-    # Wait
-    time.sleep(1)
-    # Add to total to be averaged later
     return angle
 
 
@@ -57,9 +54,6 @@ def analog():
         # Get ADC to relative zero
         ADC_rel = reading - ADC_min
         angle = ADC_rel*360.0/ADC_range
-    # Wait
-    time.sleep(1)
-    # Add to total to be averaged later
     return angle
 
 
@@ -93,17 +87,19 @@ test, samples, iterations = helper_functions.getTest()
 for i in range (0, iterations):
     try:
         total = 0
-        previous = 0
         for x in range (0, samples):
             if sensor == "i2c":
                 total += i2c(bus, address)
             else:
                 total += analog()
+            time.sleep(1)
 
         # Calculate average wind direction for i2c
         average = total/samples
 
         # Handle script output
+        if average == 0:
+            average = -999.99
         line = "%.2f" % (average)
         if test:
             helper_functions.output(True, line, "test_wind_direction")
