@@ -14,7 +14,7 @@ time.sleep(10)
 if os.path.exists(path):
     #Get url
     with open(path,'r+') as file:
-        url = file.readline().replace("/n","")
+        url = file.readline()
         file.truncate(0)
 
     url += "&key=21DE6A8A"

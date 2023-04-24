@@ -93,11 +93,12 @@ def output(show, line, sensor, remote = None):
 	# Save to the file
 	if sensor == "chords":
 		file = open(filename, 'w')
+		file.write(full_line)
 	else:
 		file = open(filename, 'a')
-	if os.path.getsize(filename) == 0 and sensor == "all":
-		file.write("year  mon  day  hour  min  int  bmp_temp  bmp_pres  bmp_slp  bmp_alt  bme_temp  bme_pres  bme_slp  bme_alt  bme_hum  htu_temp  htu_hum  mcp9808  tipping  vis_light  ir_light  uv_light  wind_dir  wind_speed\n")
-	file.write(full_line + '\n')
+		if os.path.getsize(filename) == 0 and sensor == "all":
+			file.write("year  mon  day  hour  min  int  bmp_temp  bmp_pres  bmp_slp  bmp_alt  bme_temp  bme_pres  bme_slp  bme_alt  bme_hum  htu_temp  htu_hum  mcp9808  tipping  vis_light  ir_light  uv_light  wind_dir  wind_speed\n")
+		file.write(full_line + '\n')
 	file.close()
 	# Print to screen if show is True
 	if show:
