@@ -56,27 +56,27 @@ class ShowData(wx.Dialog):
         if self.data == False:
             vbox.Add(wx.StaticText(scrolled_panel, label=self.content[0]), flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT, border=20)
         else:
-            if self.sensor == "BMP/BME":
-                start = 5
-                end = 13
-            elif self.sensor == "HTU21D":
-                start = 14
-                end = 15
-            elif self.sensor == "MCP9808":
-                start = 16
+            if "BMP/BME" in self.sensor:
+                start = 6
+                end = 14
+            elif "HTU21D" in self.sensor:
+                start = 15
                 end = 16
-            elif self.sensor == "Tipping Bucket":
+            elif "MCP9808" in self.sensor:
                 start = 17
                 end = 17
-            elif self.sensor == "SI1145":
+            elif "Tipping Bucket" in self.sensor:
                 start = 18
-                end = 20
-            elif self.sensor == "Wind Direction":
-                start = 21
+                end = 18
+            elif "SI1145" in self.sensor:
+                start = 19
                 end = 21
-            elif self.sensor == "Wind Speed":
+            elif "Wind Direction" in self.sensor:
                 start = 22
                 end = 22
+            elif "Wind Speed" in self.sensor:
+                start = 23
+                end = 23
             for line in self.content:
                 line_parts = (' '.join(line.replace("\n","").split())).split(" ")
                 info = (str(line_parts[0 : 5]).replace(", "," ") + "  ->  " + str(line_parts[start : end+1])).replace("'", "").replace("[", "").replace("]", "")
