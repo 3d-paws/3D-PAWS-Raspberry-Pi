@@ -117,7 +117,7 @@ def create_filename(folder, file):
 def getTest():
 	# Defaults
 	test = True
-	iterations = 100
+	iterations = 1000000
 	# Get Variables
 	interval = getCron()[0]
 	test_toggle = getVariables()[0]
