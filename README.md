@@ -3,7 +3,9 @@
 3D PAWS is a Python3 library used to run the various sensors of a 3D-PAWS station. This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, and SS451A. Note that you need to install this software on a raspberry pi in order for it to work.
 
 ## Installation
-If you're using our [OS image](https://drive.google.com/file/d/1cMh5CbSSyAjFs-N96DbZOGF94u9en5ae/view?usp=share_link) then all you need to do in order to update to the latest software version is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
+We recommend using our OS image on your raspberry pi. In order to do that, download the [OS image](https://drive.google.com/file/d/1cMh5CbSSyAjFs-N96DbZOGF94u9en5ae/view?usp=share_link) and load the zipped file onto your pi using the [Raspberry Pi Imager](https://www.raspberrypi.com/software/). 
+
+In order to update to the latest software version, all you need to do is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
 sudo python3 update_3d_paws.py
