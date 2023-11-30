@@ -65,7 +65,7 @@ if test_toggle == "false":
         data[5] = QC(humidity[6], -40, 60)
         data[6] = QC(humidity[7], 0, 100)
         if data[5] != -999.99:  
-            url += "&%s_temp=%05.1f&%s_humidity=%04.1f" %(v, data[9], v, data[10])
+            url += "&%s_temp=%05.1f&%s_humidity=%04.1f" %(v, data[5], v, data[6])
             
     mcp9808 = checkFile("mcp9808")
     if mcp9808:
@@ -77,7 +77,7 @@ if test_toggle == "false":
     if rain:
         data[8] = QC(rain[5], 0, 60)
         if data[8] != -999.99:  
-            url += "&rain=%04.2f" % (data[12])
+            url += "&rain=%04.2f" % (data[8])
             
     si1145 = checkFile("si1145")
     if si1145:
@@ -85,19 +85,19 @@ if test_toggle == "false":
         data[10] = QC(si1145[6], 0, 16000)
         data[11] = QC(si1145[7], 0, 1000)
         if data[9] != -999.99:  
-            url += "&si1145_vis=%010.1f&si1145_ir=%010.1f&si1145_uv=%010.1f" % (data[13], data[14], data[15])
+            url += "&si1145_vis=%010.1f&si1145_ir=%010.1f&si1145_uv=%010.1f" % (data[9], data[10], data[11])
             
     wind_direction = checkFile("wind_direction")
     if wind_direction:
         data[12] = QC(wind_direction[5], 0, 360)
         if data[12] != -999.99:  
-            url += "&wind_direction=%05.1f" % (data[16])
+            url += "&wind_direction=%05.1f" % (data[12])
 
     wind_speed = checkFile("wind_speed")
     if wind_speed:
         data[13] = QC(wind_speed[5], 0, 103)
         if data[13] != -999.99:  
-            url += "&wind_speed=%04.2f" % (data[17])
+            url += "&wind_speed=%04.2f" % (data[13])
 
     #save to daily file if data is being recorded
     if not all(ele == data[0] for ele in data):
