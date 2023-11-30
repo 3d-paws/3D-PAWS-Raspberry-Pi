@@ -6,7 +6,7 @@
 # Email: jrener@ucar.edu
 # Developed at COMET at University Corporation for Atmospheric Research and the Research Applications Laboratory at the National Center for Atmospheric Research (NCAR)
 
-import datetime, re, sys, os
+import datetime, re, sys, os, board, busio
 
 # Get script arguments
 def getVariables():
@@ -75,7 +75,7 @@ def output(show, line, sensor, remote = None):
 	if sensor == "all":
 		filename = create_filename('data/', 'recordings_%4d_%02d_%02d.dat' %(now.year, now.month, now.day))
 		d = line
-		full_line = "%4.4d %4.02d %4.02d %5.02d %4.02d %4d %9.2f %9.2f %8.2f %8.2f %9.2f %9.2f %8.2f %8.2f %8.2f %9.2f %8.2f %8.2f %8.2f %10.2f %9.2f %9.2f %9.2f %11.2f" % (now.year, now.month, now.day, now.hour, now.minute, interval, d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17])
+		full_line = "%4.4d %4.02d %4.02d %5.02d %4.02d %4d %10.2f %10.2f %9.2f %9.2f %9.2f %9.2f %8.2f %8.2f %8.2f %10.2f %9.2f %9.2f %9.2f %11.2f" % (now.year, now.month, now.day, now.hour, now.minute, interval, d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13])
 	elif sensor == "chords":
 		filename = create_filename('data/temporary/', 'chords.tmp')
 		full_line = line
@@ -97,7 +97,31 @@ def output(show, line, sensor, remote = None):
 	else:
 		file = open(filename, 'a')
 		if os.path.getsize(filename) == 0 and sensor == "all":
-			file.write("year  mon  day  hour  min  int  bmp_temp  bmp_pres  bmp_slp  bmp_alt  bme_temp  bme_pres  bme_slp  bme_alt  bme_hum  htu_temp  htu_hum  mcp9808  tipping  vis_light  ir_light  uv_light  wind_dir  wind_speed\n")
+			try:
+				import adafruit_bmp3xx
+				i2c = board.I2C()
+				adafruit_bmp3xx.BMP3XX_I2C(i2c)
+				bm = "bmp3"
+			except:
+				try:
+					import adafruit_bmp280
+					i2c = busio.I2C(board.SCL, board.SDA)
+					adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+					bm = "bmp2"
+				except:
+					import adafruit_bme280
+					i2c = board.I2C()
+					adafruit_bme280.Adafruit_BME280_I2C(i2c)
+					bm = "bme2"
+			try:
+				from adafruit_htu21d import HTU21D
+				sensor = HTU21D(i2c)
+				hum = "htu"
+			except:
+				import adafruit_sht31d
+				sensor = adafruit_sht31d.SHT31D(i2c)
+				hum = "sht"
+			file.write(f"year  mon  day  hour  min  int  {bm}_temp  {bm}_pres  {bm}_slp  {bm}_alt  bme2_hum  {hum}_temp  {hum}_hum  mcp9808  tipping  vis_light  ir_light  uv_light  wind_dir  wind_speed\n")
 		file.write(full_line + '\n')
 	file.close()
 	# Print to screen if show is True

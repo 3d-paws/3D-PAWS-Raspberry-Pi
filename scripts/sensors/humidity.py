@@ -9,12 +9,20 @@
 import sys, time
 sys.path.insert(0, '/home/pi/3d_paws/scripts/')
 import board, busio, helper_functions
-from adafruit_htu21d import HTU21D
+
+# Initialize correct sensor
+which_sensor = False
+i2c = busio.I2C(board.SCL, board.SDA)
+try:
+	from adafruit_htu21d import HTU21D
+	sensor = HTU21D(i2c)
+	which_sensor = "htu"
+except:
+	import adafruit_sht31d
+	sensor = adafruit_sht31d.SHT31D(i2c)
+	which_sensor = "sht"
 
 try:
-	i2c = busio.I2C(board.SCL, board.SDA)
-	sensor = HTU21D(i2c)
-
 	#Get arguments
 	variables = helper_functions.getVariables()
 	test_mode = variables[0]
@@ -28,15 +36,18 @@ try:
 		rh = sensor.relative_humidity
 
 		# Print to screen
-		print("HTU21D Sensor")
+		if which_sensor == "htu":
+			print("HTU21D Sensor")
+		else:
+			print("STH31D Sensor")
 		print("Temperature:  %.2f degC" % tempC)
 		print("Temperature:  %.2f degF" % tempF)
 		print("Humidity:     %.0f%%" % rh)
 		print()
 
 		# Handle script output
-		line = '%.2f %.2f' % (tempC, rh)
-		helper_functions.output(False, line, "htu21d")
+		line = '%s %.2f %.2f' % (which_sensor, tempC, rh)
+		helper_functions.output(False, line, "humidity")
 
 		# Wait 10 seconds and repeat if in test mode
 		if test_mode == "true":
@@ -45,4 +56,7 @@ try:
 			break
 
 except Exception as e:
-	helper_functions.handleError(e, "htu21d")
+	if which_sensor:
+		helper_functions.handleError(e, which_sensor)
+	else:
+		helper_functions.handleError(e, "humidity")

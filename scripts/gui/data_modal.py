@@ -59,7 +59,7 @@ class ShowData(wx.Dialog):
             if "BMP/BME" in self.sensor:
                 start = 6
                 end = 14
-            elif "HTU21D" in self.sensor:
+            elif "Humidity" in self.sensor:
                 start = 15
                 end = 16
             elif "MCP9808" in self.sensor:

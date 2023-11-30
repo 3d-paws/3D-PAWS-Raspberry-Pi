@@ -18,7 +18,7 @@ import helper_functions, wx, barometric_menu, interval_menu, backup_menu, relay_
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
     "BMP/BME sensor":wx.Window.NewControlId(),
-    "HTU21D sensor":wx.Window.NewControlId(),
+    "Humidity sensor":wx.Window.NewControlId(),
     "MCP9808 sensor":wx.Window.NewControlId(),
     "SI1145 sensor":wx.Window.NewControlId(),
     "Tipping Bucket sensor":wx.Window.NewControlId(),
@@ -29,7 +29,7 @@ SENSOR_IDS = {
 # Used to give each data button a referenceable id
 DATA_IDS = {
     "BMP/BME sensor":wx.Window.NewControlId(),
-    "HTU21D sensor":wx.Window.NewControlId(),
+    "Humidity sensor":wx.Window.NewControlId(),
     "MCP9808 sensor":wx.Window.NewControlId(),
     "SI1145 sensor":wx.Window.NewControlId(),
     "Tipping Bucket sensor":wx.Window.NewControlId(),

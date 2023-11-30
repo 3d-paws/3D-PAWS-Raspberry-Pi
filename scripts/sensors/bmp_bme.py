@@ -22,15 +22,21 @@ try:
 	# Initialize correct sensor
 	which_sensor = False
 	try:
-		import adafruit_bmp280
-		i2c = busio.I2C(board.SCL, board.SDA)
-		bmp = adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+		import adafruit_bmp3xx
+		i2c = board.I2C()
+		bmp = adafruit_bmp3xx.BMP3XX_I2C(i2c)
 		which_sensor = "bmp"
 	except:
-		import adafruit_bme280
-		i2c = board.I2C()
-		bme = adafruit_bme280.Adafruit_BME280_I2C(i2c)
-		which_sensor = "bme"
+		try:
+			import adafruit_bmp280
+			i2c = busio.I2C(board.SCL, board.SDA)
+			bmp = adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+			which_sensor = "bmp"
+		except:
+			import adafruit_bme280
+			i2c = board.I2C()
+			bme = adafruit_bme280.Adafruit_BME280_I2C(i2c)
+			which_sensor = "bme"
 
 	# Run once... or if in test mode, run every 10 seconds during the interval
 	for x in range (0,iterations):
@@ -50,10 +56,9 @@ try:
 
 		# Print to screen
 		if which_sensor == "bmp":
-			print("BMP280 Sensor")
-			print("Altitude:            %.2f m" % altitude)
+			print("BMP Sensor")
 		else:
-			print("BME280 Sensor")
+			print("BME Sensor")
 			print("Relative Humidity:   %.2f" % humidity)
 		print("Temperature:         %.2f degC" % tempC)
 		print("Temperature:         %.2f degF" % tempF)
@@ -64,10 +69,10 @@ try:
 
 		# Handle script output
 		if which_sensor == "bmp":
-			line = "%.2f %.2f %.2f %.2f" % (tempC, station_pres, slp, altitude)
+			line = "%s %.2f %.2f %.2f %.2f" % (which_sensor, tempC, station_pres, slp, altitude)
 		else:
-			line = "%.2f %.2f %.2f %.2f %.2f" % (tempC, station_pres, slp, altitude, humidity)
-		helper_functions.output(False, line, which_sensor)
+			line = "%s %.2f %.2f %.2f %.2f %.2f" % (which_sensor, tempC, station_pres, slp, altitude, humidity)
+		helper_functions.output(False, line, "bm")
 
 		# Wait 10 seconds and repeat if in test mode
 		if test_mode == "true":
