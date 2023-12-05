@@ -65,7 +65,7 @@ if test_toggle == "false":
         data[5] = QC(humidity[6], -40, 60)
         data[6] = QC(humidity[7], 0, 100)
         if data[5] != -999.99:  
-            url += "&%s_temp=%05.1f&%s_humidity=%04.1f" %(v, data[5], v, data[6])
+            url += "&%s_temp=%05.1f&%s_humidity=%04.1f" %(version, data[5], version, data[6])
             
     mcp9808 = checkFile("mcp9808")
     if mcp9808:
