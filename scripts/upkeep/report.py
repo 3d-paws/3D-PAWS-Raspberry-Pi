@@ -71,7 +71,7 @@ if test_toggle == "false":
     if mcp9808:
         data[7] = QC(mcp9808[5], -40, 60)
         if data[7] != -999.99:  
-            url += "&mcp9808=%05.1f" % (data[11])
+            url += "&mcp9808=%05.1f" % (data[7])
 
     rain = checkFile("rain")
     if rain:
