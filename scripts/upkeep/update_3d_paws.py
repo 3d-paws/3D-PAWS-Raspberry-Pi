@@ -81,6 +81,31 @@ def run_command(command, extra=None):
             sys.exit()
 
 
+#checks current python release
+def check_python_version():
+    current_version = sys.version_info
+    if current_version.major < 3 or (current_version.major == 3 and current_version.minor < 8):
+        print("Python 3.8 or higher is required. Currently, Python {}.{} is installed.".format(current_version.major, current_version.minor))
+        return False
+    print("Correct version of Python installed.")
+    return True
+
+
+#update to Python 3.8
+def install_python38():
+    print("Installing Python 3.8...")
+    os.system("sudo apt-get update && sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git")
+    os.system("curl https://pyenv.run | bash")
+    # Add pyenv initializer to shell startup script.
+    home_path = os.path.expanduser('~')
+    with open(home_path + '/.bashrc', 'a') as file:
+        file.write('\n# Pyenv Initialization\nexport PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init --path)"\neval "$(pyenv virtualenv-init -)"\n')
+    os.system("exec $SHELL")
+    os.system("pyenv install 3.8.10")
+    os.system("pyenv global 3.8.10")
+    print("Python 3.8 installed successfully.")
+
+
 #main update sequence
 def main():
     #check for internet
@@ -89,6 +114,9 @@ def main():
         print("No internet connection found. You must be connected to the internet in order to update software.")
         print()
     else:
+        #update to python 3.8 if necessary
+        if not check_python_version():
+            install_python38()
         #download
         print("Backing up information...")
         #preserve old data
