@@ -69,7 +69,7 @@ def getCron():
 def output(show, line, sensor, remote = None):
 	inputs = getVariables()
 	interval = getCron()[0]
-	now = datetime.datetime.now(datetime.UTC) #+ datetime.timedelta(minutes=1)
+	now = datetime.datetime.now(datetime.timezone.utc) #+ datetime.timedelta(minutes=1)
 	time = "%4d %02d %02d %02d %02d" % (now.year, now.month, now.day, now.hour, now.minute)
     # Open a file (name based on current date) and format data
 	if sensor == "all":

@@ -18,7 +18,7 @@ if os.path.exists(path):
         url = file.readline()
         file.truncate(0)
 
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
     url += "&key=21DE6A8A" 
     url += "&at=%4d%02d%02dT%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
     try:
