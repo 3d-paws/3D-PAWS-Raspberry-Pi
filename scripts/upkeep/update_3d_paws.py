@@ -9,6 +9,7 @@
 #To stop updates: change environement.py so it will turn off the cron for update_3d_paws.py, thus stopping updates on all current stations. Wait for this update to be pushed out before
 #committing the changes that aren't reverse compatable. Change environement.py back before setting up new stations so that they'll still be able to update.
 
+import subprocess
 import os, sys, time, urllib.request
 root = '/home/pi'
 path = root + '/3d_paws'
@@ -82,49 +83,28 @@ def run_command(command, extra=None):
 
 
 #checks current python release
-def check_python_version():
-    current_version = sys.version_info
-    if current_version.major < 3 or (current_version.major == 3 and current_version.minor < 8):
-        print("Python 3.8 or higher is required. Currently, Python {}.{} is installed.".format(current_version.major, current_version.minor))
+def check_python_installed():
+    try:
+        output = subprocess.check_output(["python3.8", "--version"])
+        print("Python is up to date.")
+        return True
+    except subprocess.CalledProcessError:
+        print("Python needs to be updated.")
         return False
-    print("Correct version of Python installed.")
-    return True
 
 
-#update to Python 3.8
 def install_python38():
-    print("Installing Python 3.8...")
-    os.system("sudo apt-get update --allow-releaseinfo-change")
-    os.system("sudo apt-get update && sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git")
-    os.system("curl https://pyenv.run | bash")
-    # Add pyenv initializer to shell startup script.
-    setup_pyenv_environment()
-    home_path = os.path.expanduser('~')
-    with open(home_path + '/.bashrc', 'a') as file:
-        file.write('\n# Pyenv Initialization\nexport PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init --path)"\neval "$(pyenv virtualenv-init -)"\n')
-    os.system("exec $SHELL")
-    os.system("pyenv install 3.8.10")
-    os.system("pyenv global 3.8.10")
-    print("Python 3.8 installed successfully.")
-
-
-#used to help with the python update
-def setup_pyenv_environment():
-    profile_paths = ['/root/.bash_profile', '/root/.profile', '/root/.bashrc']
-    pyenv_init_script = """
-    # Pyenv Setup
-    export PYENV_ROOT="$HOME/.pyenv"
-    if [ -d "$PYENV_ROOT/bin" ]; then
-        export PATH="$PYENV_ROOT/bin:$PATH"
-    fi
-    eval "$(pyenv init -)"
-    eval "$(pyenv virtualenv-init -)"
-    """
-    for path in profile_paths:
-        with open(path, 'a') as file:
-            file.write(pyenv_init_script)
-    # The script might need to reload the shell environment or instruct the user to do so.
-    print("Pyenv setup appended to shell profiles. Please restart your shell for the changes to take effect.")
+    print("Installing Python 3.8 from source...")
+    os.system("sudo apt-get update && sudo apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl")
+    os.system("wget https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz")
+    os.system("tar xvf Python-3.8.10.tgz")
+    os.chdir("Python-3.8.10")
+    os.system("./configure --enable-optimizations")
+    os.system("make -j4")
+    os.system("sudo make altinstall")
+    os.system("sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.8 1")
+    os.chdir("..")
+    print("Python 3.8 installed and set as the default Python 3 interpreter.")
 
 
 #main update sequence
@@ -136,7 +116,7 @@ def main():
         print()
     else:
         #update to python 3.8 if necessary
-        if not check_python_version():
+        if not check_python_installed():
             install_python38()
         #download
         print("Backing up information...")
