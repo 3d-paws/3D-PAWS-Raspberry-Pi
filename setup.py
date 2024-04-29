@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '3.5.0' 
+VERSION = '3.6.0' 
 DESCRIPTION = 'A python library used to run a 3D PAWS weather station. For more information, go to https://github.com/3d-paws/3d_paws'
 
 setup(
@@ -22,7 +22,7 @@ setup(
             "adafruit_circuitpython_bmp3xx",
             "adafruit_circuitpython_bmp280==3.2.3",
             "adafruit_circuitpython_HTU21D==0.10.2",
-            "adafruit_circuitpython_sht31d",
+            "adafruit_circuitpython_sht31d==2.3.0",
             "adafruit_circuitpython_mcp9808==3.3.2",
             "adafruit_mcp9808==1.5.6",
             "board==1.0",
@@ -36,7 +36,7 @@ setup(
             "wxPython==4.0.4"
         ], 
 
-        python_requires='>=3.6',
+        python_requires='>=3.8',
         
         keywords=['3d', 'paws'],
 
