@@ -106,7 +106,7 @@ def install_python38():
     os.system("tar xvf Python-3.8.10.tgz")
     os.chdir("Python-3.8.10")
     os.system("./configure --enable-optimizations")
-    os.system("make -j4")
+    os.system("make -j2")
     os.system("sudo make altinstall")
     os.system("sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.8 1")
     os.chdir("..")
