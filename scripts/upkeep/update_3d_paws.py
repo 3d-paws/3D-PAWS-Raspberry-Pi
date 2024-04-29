@@ -94,9 +94,11 @@ def check_python_version():
 #update to Python 3.8
 def install_python38():
     print("Installing Python 3.8...")
+    os.system("sudo apt-get update --allow-releaseinfo-change")
     os.system("sudo apt-get update && sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git")
     os.system("curl https://pyenv.run | bash")
     # Add pyenv initializer to shell startup script.
+    setup_pyenv_environment()
     home_path = os.path.expanduser('~')
     with open(home_path + '/.bashrc', 'a') as file:
         file.write('\n# Pyenv Initialization\nexport PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init --path)"\neval "$(pyenv virtualenv-init -)"\n')
@@ -104,6 +106,25 @@ def install_python38():
     os.system("pyenv install 3.8.10")
     os.system("pyenv global 3.8.10")
     print("Python 3.8 installed successfully.")
+
+
+#used to help with the python update
+def setup_pyenv_environment():
+    profile_paths = ['/root/.bash_profile', '/root/.profile', '/root/.bashrc']
+    pyenv_init_script = """
+    # Pyenv Setup
+    export PYENV_ROOT="$HOME/.pyenv"
+    if [ -d "$PYENV_ROOT/bin" ]; then
+        export PATH="$PYENV_ROOT/bin:$PATH"
+    fi
+    eval "$(pyenv init -)"
+    eval "$(pyenv virtualenv-init -)"
+    """
+    for path in profile_paths:
+        with open(path, 'a') as file:
+            file.write(pyenv_init_script)
+    # The script might need to reload the shell environment or instruct the user to do so.
+    print("Pyenv setup appended to shell profiles. Please restart your shell for the changes to take effect.")
 
 
 #main update sequence
