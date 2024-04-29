@@ -15,6 +15,8 @@ setup(
             where='scripts'
         ),
 
+        python_requires='>=3.8',
+
         install_requires=[
             "Adafruit_Blinka==4.8.1",
             "adafruit_bme280==1.0.1",
@@ -36,8 +38,6 @@ setup(
             "wxPython==4.0.4"
         ], 
 
-        python_requires='>=3.8',
-        
         keywords=['3d', 'paws'],
 
         classifiers= [
