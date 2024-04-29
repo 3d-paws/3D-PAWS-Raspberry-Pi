@@ -85,11 +85,17 @@ def run_command(command, extra=None):
 #checks current python release
 def check_python_installed():
     try:
-        output = subprocess.check_output(["python3.8", "--version"])
+        # Try checking for Python 3.8 version
+        subprocess.check_output(["python3.8", "--version"])
         print("Python is up to date.")
         return True
-    except subprocess.CalledProcessError:
+    except FileNotFoundError:
+        # Python 3.8 is not installed
         print("Python needs to be updated.")
+        return False
+    except Exception as e:
+        # Handle other exceptions
+        print(f"An error occurred: {e}")
         return False
 
 
