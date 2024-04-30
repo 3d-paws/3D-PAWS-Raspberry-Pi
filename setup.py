@@ -24,7 +24,7 @@ setup(
             "adafruit_circuitpython_bmp3xx",
             "adafruit_circuitpython_bmp280==3.2.3",
             "adafruit_circuitpython_HTU21D==0.10.2",
-            "adafruit_circuitpython_sht31d",
+            #"adafruit_circuitpython_sht31d",
             "adafruit_circuitpython_mcp9808==3.3.2",
             "adafruit_mcp9808==1.5.6",
             "board==1.0",
