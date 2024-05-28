@@ -82,36 +82,6 @@ def run_command(command, extra=None):
             sys.exit()
 
 
-#checks current python release
-def check_python_installed():
-    try:
-        # Try checking for Python 3.8 version
-        subprocess.check_output(["python3.8", "--version"])
-        print("Python is up to date.")
-        return True
-    except FileNotFoundError:
-        # Python 3.8 is not installed
-        print("Python needs to be updated.")
-        return False
-    except Exception as e:
-        # Handle other exceptions
-        print(f"An error occurred: {e}")
-        return False
-
-
-def install_python38():
-    print("Installing Python 3.8 from source...")
-    os.system("sudo apt-get update && sudo apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl")
-    os.system("wget https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz")
-    os.system("tar xvf Python-3.8.10.tgz")
-    os.chdir("Python-3.8.10")
-    os.system("./configure --enable-optimizations")
-    os.system("sudo make altinstall")
-    os.system("sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.8 1")
-    os.chdir("..")
-    print("Python 3.8 installed and set as the default Python 3 interpreter.")
-
-
 #main update sequence
 def main():
     #check for internet
@@ -120,9 +90,6 @@ def main():
         print("No internet connection found. You must be connected to the internet in order to update software.")
         print()
     else:
-        #update to python 3.8 if necessary
-        ####if not check_python_installed():
-        ####    install_python38()
         #download
         print("Backing up information...")
         #preserve old data
@@ -151,7 +118,7 @@ def main():
         print("Installing dependencies (this could take some time)...")
         run_command("sudo python3 " + path + "/setup.py install")
         run_command("sudo apt-get install lftp")
-        run_command("sudo pip3 install adafruit-circuitpython-sht31d==2.3.0")
+        #run_command("sudo pip3 install adafruit-circuitpython-sht31d==2.3.0")
         print("Dependencies successfully installed.")
         print()
         #cron
