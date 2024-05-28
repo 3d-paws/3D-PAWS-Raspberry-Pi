@@ -20,7 +20,7 @@ if os.path.exists(path):
 
     now = datetime.datetime.now(datetime.timezone.utc)
     url += "&key=21DE6A8A" 
-    #url += "&at=%4d%02d%02dT%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
+    #url += "&at=%4d-%02d-%02dT%02d:%02d:%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
     try:
         requests.get(url=url)
     except:
