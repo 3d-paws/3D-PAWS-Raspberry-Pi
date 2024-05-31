@@ -4,16 +4,26 @@
 
 ## Step 1) Installation
 ### Using an OS Image
-We recommend using our OS image to setup your raspberry pi. To do so, download the [OS image](https://drive.google.com/file/d/1ck8N7d2CWNkj50k7m8lLqwNjnUSTWsCz/view?usp=sharing) and load the zipped file onto your pi using the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+We recommend using our OS image to setup your raspberry pi. Follow these steps to do so:
 
-Once complete, you'll want to update to the latest software version. All you need to do is open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
+1. On any computer, download the [OS image](https://drive.google.com/file/d/1ck8N7d2CWNkj50k7m8lLqwNjnUSTWsCz/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher).
+
+2. Unzip the OS image. 
+
+3. Insert a micro-SD card to your computer that is at least 32 GB large (this will likely require a micro-SD to USB adapter).
+
+4. Open Etcher, selecting "Flash from File". Navigate to your unzipped image; within that folder, you'll find the .img file (you may need to select "All files" instead of "Image files" in the bottom of the search window in order to see this) and select the SD card as the target. 
+
+5. Flash! 
+
+6. Once complete, you'll want to update to the latest software version. Insert the SD card into a raspberry pi and turn it on. Open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
 sudo python3 update_3d_paws.py
 ```
 
 ### Not Using OS Image
-You'll need to download and unpack the software by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
+If you already have a fully functioning raspberry pi that you'd like to install the software on, you'll need to download and unpack it by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
 
 ```bash
 cd /home/pi/
@@ -69,11 +79,31 @@ password: Wrf2Pi8!
 password: 3d_paws!
 ```
 
+### Running Tests
+Open a terminal, and navigate to where the scripts are located.
+
+```bash
+cd /3d-paws/scripts/sensors
+```
+
+This folder contains all sensor scripts. You can run any of them by typing "sudo python3" followed by the name of the script. For example: 
+
+```bash
+sudo python3 bmp_bme.py
+```
+
+Note that the rain and two wind sensors show data every minute while doing this. You can add a number after the command to have the code instead run after that many seconds. For example, if you want to test the tipping bucket every 5 seconds, type
+
+```bash
+sudo python3 rain.py 5
+```
+
 ### Launching the Software
 You can either launch the GUI from the desktop by double clicking the icon, or from the terminal.
 ```bash
 sudo python3 /home/pi/3d_paws/scripts/gui/main.py
 ```
+
 ### Finding the Data
 If the option is activated, the pi will report to CHORDS and/or backup data to the RAL server. If you want to locate your data locally, you can find it in /home/pi/data/. Data gathered over a 24-hour period are stored into a single file.
 
