@@ -42,11 +42,11 @@ sudo python3 environment.py
 Note: this will delete anything already in the cron (this is to ensure no issues occur when updating the 3D-PAWS software). If the pi is only used for 3d-paws (which is recommended) then this won't be an issue. 
 
 ## Step 2) Set Variables
-The software will run without any changes made during this step. However, we recommend at least changing pressure level and altitude to ensure the data is accurate. You'll also want to activate CHORDS so the data is is sent to the database. There are two ways of doing this.
+The software will run without any changes made during this step. However, we recommend at least changing pressure level and altitude to ensure the data is accurate. You'll also want to activate CHORDS so the data is sent to the database. There are two ways of doing this.
 
 Recommended Way: Launch the GUI (it has a shortcut on the desktop). In the GUI, there is a Settings button in the top left, containing 3 options. Click through each of them, changing any variables you need to. Descriptions for these variables are noted in the GUI.  
 
-Other Way: Update the variables.txt file directly, which is on located your Desktop (/home/pi/Desktop). It is formatted as follows: 
+Other Way: Update the variables.txt file directly, which is located on your Desktop (/home/pi/Desktop). It is formatted as follows: 
 
     1. Recording interval is how often, in minutes, data is recorded locally.
     2. Chords interval is how often, in minutes, that data is sent to CHORDS.
@@ -57,7 +57,7 @@ Other Way: Update the variables.txt file directly, which is on located your Desk
     7. Toggle (true or false) to determine if the station is in test mode, which will record data in second intervals based on the Recording interval (instead of in minute intervals)
     8. The station's altitude. This is set to a massive number by default; make sure to set this one correctly!
 
-The list must remain comma-seperated, with no spaces. 
+The list must remain comma-separated, with no spaces. 
 
 ## Step 3) Teamviewer
 Teamviewer is used to connect remotely to your pi. If you run into trouble and need assistance, this is usually the way we can help, so it's important to get it setup.
@@ -77,7 +77,7 @@ Once done, open Teamviewer by clicking the blue icon near the bottom right of th
 
 You're all set! Make note of your Teamviewer ID so you'll be able to connect.
 
-## Step 4) Usage
+## Step 4) Operrating the Station
 ### Activating Sensors
 Open the GUI from the desktop, and simply toggle "on" each sensor that you wish to activate. If a restart is required, the GUI will alert you.
 
@@ -115,12 +115,6 @@ If instead, you would like all sensors to run in sub-minute intervals, you can a
 
 You can activate test mode by toggling it on in the Intervals Menu of the GUI, or by switching the 7th value in variables.txt to true. You may need to restart the Raspberry Pi in order for the changes to take effect (this is true for deactivating test mode as well).
 
-### Launching the Software
-You can either launch the GUI from the desktop by double clicking the icon, or from the terminal.
-```bash
-sudo python3 /home/pi/3d_paws/scripts/gui/main.py
-```
-
 ### Finding the Data
 If the option is activated, the pi will report to CHORDS and/or backup data to the RAL server. If you want to locate your data locally, you can find it in /home/pi/data/. Data gathered over a 24-hour period are stored into a single file.
 
@@ -135,7 +129,7 @@ If a sensor isn't recording data, try the following steps:
 
 1. Run a software update (as shown above).
 
-2. Open the command line and type
+2. Check if the sensor is connected. Open the command line and type
 ```bash
 i2cdetect -y 0
 ```
