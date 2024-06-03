@@ -1,10 +1,10 @@
 # 3D PAWS
 
-3D PAWS is a Python3 library used to run the various sensors of a [3D-PAWS station](https://sites.google.com/ucar.edu/3dpaws/home). This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, and SS451A. Note that you need to install this software on a raspberry pi in order for it to work.
+3D PAWS is a Python3 library used to run the various sensors of a [3D-PAWS station](https://sites.google.com/ucar.edu/3dpaws/home). This library supports the following sensors: BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, SS451A, and STH31D. Note that you need to install this software on a Raspberry Pi in order for it to work.
 
 ## Step 1) Installation
 ### Using an OS Image
-We recommend using our OS image to setup your raspberry pi. Follow these steps to do so:
+We recommend using our OS image to setup your Raspberry Pi. Follow these steps to do so:
 
 1. On any computer, download the [OS image](https://drive.google.com/file/d/1ck8N7d2CWNkj50k7m8lLqwNjnUSTWsCz/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher).
 
@@ -16,14 +16,14 @@ We recommend using our OS image to setup your raspberry pi. Follow these steps t
 
 5. Flash! 
 
-6. Once complete, you'll want to update to the latest software version. Insert the SD card into a raspberry pi and turn it on. Open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
+6. Once complete, you'll want to update to the latest software version. Insert the SD card into a Raspberry Pi and turn it on. Open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
 
 ```bash
 sudo python3 update_3d_paws.py
 ```
 
 ### Not Using OS Image
-If you already have a fully functioning raspberry pi that you'd like to install the software on, you'll need to download and unpack it by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
+If you already have a fully functioning Raspberry Pi that you'd like to install the software on, you'll need to download and unpack it by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
 
 ```bash
 cd /home/pi/
