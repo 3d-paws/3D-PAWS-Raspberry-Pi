@@ -135,10 +135,11 @@ i2cdetect -y 0
 ```
 
 If the sensor's address isn't listed, it isn't plugged in correctly. Check the connections. Below are the sensors' addresses. If it isn't listed, the sensor isn't I2C and can't be detected in this way.
-BMP/BME 280: 0x77
-HTU21D: 0x40
-MCP9808: 0x18
+MCP9808: 0x18 
+HTU21D: 0x40 
+SHT31d: 0x44 or 0x45
 SI1145: 0x60
+BMP/BME 280: 0x77
 
 3. Check if it's recording data.
 ```bash
