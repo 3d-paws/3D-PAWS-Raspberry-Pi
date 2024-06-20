@@ -35,7 +35,7 @@ setup(
             "SI1145==1.0.2",
             "smbus==1.1.post2",
             "spidev==3.5",
-            "wxPython==4.0.4"
+            "wxPython==4.2.1"
         ], 
 
         keywords=['3d', 'paws'],
