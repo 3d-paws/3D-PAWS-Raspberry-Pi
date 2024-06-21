@@ -15,10 +15,10 @@ setup(
             where='scripts'
         ),
 
-        python_requires='>=3.8',
+        python_requires='>=3.7', ####3.8
 
         install_requires=[
-            "Adafruit_Blinka==7.0.0",
+            "Adafruit_Blinka==4.8.1",
             "adafruit_bme280==1.0.1",
             "adafruit_circuitpython_bme280==2.4.3",
             "adafruit_circuitpython_bmp3xx",
@@ -35,7 +35,7 @@ setup(
             "SI1145==1.0.2",
             "smbus==1.1.post2",
             "spidev==3.5",
-            "wxPython==4.2.1"
+            "wxPython==4.0.4"
         ], 
 
         keywords=['3d', 'paws'],
