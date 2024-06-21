@@ -116,6 +116,7 @@ def main():
         print()
         #install
         print("Installing dependencies (this could take some time)...")
+        run_command("sudo pip3 install adafruit-blinka==4.7.0")
         run_command("sudo python3 " + path + "/setup.py install")
         run_command("sudo apt-get install lftp")
         #run_command("sudo pip3 install adafruit-circuitpython-sht31d==2.3.0")
