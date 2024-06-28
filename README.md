@@ -48,14 +48,12 @@ Recommended Way: Launch the GUI (it has a shortcut on the desktop). In the GUI, 
 
 Other Way: Update the variables.txt file directly, which is located on your Desktop (/home/pi/Desktop). It is formatted as follows: 
 
-    1. Recording interval is how often, in minutes, data is recorded locally.
-    2. Chords interval is how often, in minutes, that data is sent to CHORDS.
-    3. Toggle (either true or false) of you want to report to CHORDS.
-    4. The station ID.
-    5. Link to the correct CHORDS site
-    6. The station's pressure level.
-    7. Toggle (true or false) to determine if the station is in test mode, which will record data in second intervals based on the Recording interval (instead of in minute intervals)
-    8. The station's altitude. This is set to a massive number by default; make sure to set this one correctly!
+    1. Toggle (either true or false) of you want to report to CHORDS.
+    2. The station ID.
+    3. Link to the correct CHORDS site
+    4. The station's pressure level.
+    5. Toggle (true or false) to determine if the station is in test mode, which will record data in second intervals based on the Recording interval (instead of in minute intervals)
+    6. The station's altitude. This is set to a massive number by default; make sure to set this one correctly!
 
 The list must remain comma-separated, with no spaces. 
 
