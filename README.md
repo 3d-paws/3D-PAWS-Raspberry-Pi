@@ -75,7 +75,7 @@ Once done, open Teamviewer by clicking the blue icon near the bottom right of th
 
 You're all set! Make note of your Teamviewer ID so you'll be able to connect.
 
-## Step 4) Operrating the Station
+## Step 4) Operating the Station
 ### Activating Sensors
 Open the GUI from the desktop, and simply toggle "on" each sensor that you wish to activate. If a restart is required, the GUI will alert you.
 
