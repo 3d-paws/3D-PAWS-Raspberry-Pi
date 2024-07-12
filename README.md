@@ -48,7 +48,7 @@ Recommended Way: Launch the GUI (it has a shortcut on the desktop). In the GUI, 
 
 Other Way: Update the variables.txt file directly, which is located on your Desktop (/home/pi/Desktop). It is formatted as follows: 
 
-    1. Toggle (either true or false) of you want to report to CHORDS.
+    1. Toggle (either true or false) if you want to report to CHORDS.
     2. The station ID.
     3. Link to the correct CHORDS site
     4. The station's pressure level.
