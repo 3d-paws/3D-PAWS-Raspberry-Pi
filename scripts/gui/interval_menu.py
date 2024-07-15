@@ -32,7 +32,7 @@ class ChangeInterval(wx.Dialog):
         # Add explanation text
         vbox.Add(wx.StaticText(panel, label="Here you can change how often sensors record locally"), flag=wx.LEFT|wx.TOP|wx.RIGHT, border=15)
         vbox.Add(wx.StaticText(panel, label="and to CHORDS. They should be between 1 and 59 minutes."), flag=wx.LEFT|wx.RIGHT, border=15)
-        vbox.Add(wx.StaticText(panel, label="Test mode changes this from minutes to seconds."), flag=wx.LEFT|wx.BOTTOM|wx.RIGHT, border=15)
+        vbox.Add(wx.StaticText(panel, label="Test mode ignores this, and records every 10 seconds."), flag=wx.LEFT|wx.BOTTOM|wx.RIGHT, border=15)
         # Make a horizontal line
         line = wx.StaticLine(panel)
         vbox.Add(line, flag=wx.LEFT|wx.BOTTOM|wx.RIGHT|wx.EXPAND, border=7)
