@@ -18,7 +18,7 @@ setup(
         python_requires='>=3.7', ####3.8
 
         install_requires=[
-            "Adafruit_Blinka==4.8.1",
+            "Adafruit_Blinka==4.7.0",
             "adafruit_bme280==1.0.1",
             "adafruit_circuitpython_bme280==2.4.3",
             "adafruit_circuitpython_bmp3xx",
