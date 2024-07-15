@@ -15,7 +15,7 @@ setup(
             where='scripts'
         ),
 
-        python_requires='>=3.7', ####3.8
+        python_requires='>=3.7',
 
         install_requires=[
             "Adafruit_Blinka==4.7.0",

@@ -58,20 +58,13 @@ Other Way: Update the variables.txt file directly, which is located on your Desk
 The list must remain comma-separated, with no spaces. 
 
 ## Step 3) Teamviewer
-Teamviewer is used to connect remotely to your pi. If you run into trouble and need assistance, this is usually the way we can help, so it's important to get it setup.
-
-First, open a command terminal and run the following commands in sequence. This will generate your Teamviewer ID.
+Teamviewer is used to connect remotely to your pi. If you run into trouble and need assistance, this is usually the way we can help, so it's important to get it setup. All you need to do is open a command terminal and run 
 
 ```bash
-sudo systemctl stop teamviewerd
-sudo rm -rf /etc/teamviewer/global.conf
-sudo rm -rf /var/lib/teamviewer/config/global.conf
-sudo rm /etc/machine-id
-sudo systemd-machine-id-setup
-sudo systemctl start teamviewerd
+sudo python3 teamviewer.py
 ```
 
-Once done, open Teamviewer by clicking the blue icon near the bottom right of the desktop. Go into Settings by clicking the gear icon (if the "Set easy access" popup is up, clicking the button there will also bring you to Settings). Go to the Advanced tab and scroll down to Personal Password. Type in whatever you choose, then hit Apply, then OK. 
+Once done, open Teamviewer by clicking the blue icon near the bottom right of the desktop. Go into Settings by clicking the gear icon (if the "Set easy access" popup is up, clicking the button there will also bring you to Settings). Go to the Advanced tab and scroll down to Personal Password. After entering the pi password (Wrf2Pi8!), type in whatever you choose, then hit Apply, then OK. 
 
 You're all set! Make note of your Teamviewer ID so you'll be able to connect.
 
