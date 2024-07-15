@@ -9,7 +9,6 @@
 #To stop updates: change environement.py so it will turn off the cron for update_3d_paws.py, thus stopping updates on all current stations. Wait for this update to be pushed out before
 #committing the changes that aren't reverse compatable. Change environement.py back before setting up new stations so that they'll still be able to update.
 
-import subprocess
 import os, sys, time, urllib.request
 root = '/home/pi'
 path = root + '/3d_paws'
@@ -31,7 +30,7 @@ def connect():
                     file.write("RTC successfully set. Do not delete this file unless you need to reset the RTC.")
                 print("RTC successfully set.")
             else:
-                print("Failed to set RTC. It is likely not connected.")
+                print("No RTC connected.")
             print()
         return True
     except:
@@ -118,7 +117,6 @@ def main():
         print("Installing dependencies (this could take some time)...")
         run_command("sudo python3 " + path + "/setup.py install")
         run_command("sudo apt-get install lftp")
-        #run_command("sudo pip3 install adafruit-circuitpython-sht31d==2.3.0")
         print("Dependencies successfully installed.")
         print()
         #cron
@@ -126,6 +124,13 @@ def main():
         run_command("sudo python3 " + path + "/scripts/upkeep/environment.py")
         print("Cron successfully updated.")
         print()
+        #rain gauge spreadsheet
+        print("Updating rainngauge spreadsheet...")
+        if os.path.exists("/home/pi/Desktop/Rain_Gauge_Calibration.xlsx"):
+            run_command("sudo rm /home/pi/Desktop/Rain_Gauge_Calibration.xlsx")
+        run_command("sudo cp /home/pi/3d_paws/scripts/gui/Rain_Gauge_Calibration.xlsx /home/pi/Desktop/Rain_Gauge_Calibration.xlsx")
+        run_command("sudo chmod -R a+rwx /home/pi/Desktop/Rain_Gauge_Calibration.xlsx")
+        print("Spreadsheet successfully updated.")
         #finish
         cleanup(None)
 
