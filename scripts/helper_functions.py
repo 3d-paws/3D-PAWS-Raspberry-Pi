@@ -83,7 +83,8 @@ def output(show, line, sensor, remote = None):
 		if "test_" in sensor:
 			sensor = sensor.replace("test_", "")
 		filename = create_filename('data/tests/' + sensor + '/', '%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))
-		full_line = time + " " + str(now.second) + " " + line
+		time = "%4d-%02d-%02d-%02d-%02d" % (now.year, now.month, now.day, now.hour, now.minute)
+		full_line = time + "-" + str(now.second) + " " + line
 	elif remote:
 		filename = create_filename('data/', 'remote_%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))
 		full_line = time + " " + line
