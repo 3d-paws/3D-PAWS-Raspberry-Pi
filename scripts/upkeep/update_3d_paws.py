@@ -105,7 +105,7 @@ def main():
         print("Downloading 3D PAWS software package...")
         run_command("sudo git clone https://github.com/3d-paws/3D-PAWS-Raspberry-Pi", 1)
         if os.getcwd() != root:
-            move("3d_paws/", path)
+            move("3D-PAWS-Raspberry-Pi/", path)
         print("Download complete.")
         print()
         #permissions
