@@ -46,7 +46,7 @@ def cleanup(situation):
             print("Update complete!")
             print("Restarting...")
             time.sleep(4)
-            os.system("sudo reboot")
+            ####os.system("sudo reboot")
     else:
         if os.path.exists(old_path):
             print("Rolling back changes...")
@@ -104,9 +104,12 @@ def main():
         #install new 3d paws
         print("Downloading 3D PAWS software package...")
         run_command("sudo git clone https://github.com/3d-paws/3D-PAWS-Raspberry-Pi", 1)
-        if os.getcwd() != root:
+        if os.path.exists("3D-PAWS-Raspberry-Pi/"):
+            print("Download complete.")
             move("3D-PAWS-Raspberry-Pi/", path)
-        print("Download complete.")
+        else:
+            print("Download failed.")
+            return
         print()
         #permissions
         print("Updating permissions...")
