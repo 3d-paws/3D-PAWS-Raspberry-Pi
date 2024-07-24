@@ -13,7 +13,7 @@ import os, sys, time, urllib.request
 root = '/home/pi'
 path = root + '/3d_paws'
 old_path = path + "_old"
-git = 'https://github.com/3d-paws/3d_paws'
+git = 'https://github.com/3d-paws/3D-PAWS-Raspberry-Pi'
 
 
 #checks for internet connection
@@ -103,7 +103,7 @@ def main():
         print()
         #install new 3d paws
         print("Downloading 3D PAWS software package...")
-        run_command("sudo git clone https://github.com/3d-paws/3d_paws", 1)
+        run_command("sudo git clone https://github.com/3d-paws/3D-PAWS-Raspberry-Pi", 1)
         if os.getcwd() != root:
             move("3d_paws/", path)
         print("Download complete.")
