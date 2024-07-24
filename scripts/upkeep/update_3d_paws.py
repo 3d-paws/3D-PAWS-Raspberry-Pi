@@ -46,7 +46,7 @@ def cleanup(situation):
             print("Update complete!")
             print("Restarting...")
             time.sleep(4)
-            ####os.system("sudo reboot")
+            os.system("sudo reboot")
     else:
         if os.path.exists(old_path):
             print("Rolling back changes...")
