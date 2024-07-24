@@ -27,7 +27,6 @@ setup(
             "adafruit_circuitpython_sht31d==2.3.0",
             "adafruit_circuitpython_mcp9808==3.3.2",
             "adafruit_mcp9808==1.5.6",
-            "board==1.0",
             "gps==3.19",
             "python_crontab==2.6.0",
             "requests==2.28.0",
