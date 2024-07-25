@@ -16,14 +16,8 @@ The 3D-PAWS OS and software are burned into a disk image. We recommend using thi
 
 5. Flash! 
 
-6. Once complete, you'll want to update to the latest software version. Insert the SD card into a Raspberry Pi and turn it on. If it is connected to a monitor, keyboard, and mouse, it will boot into a desktop environment. Open a command terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type
-
-```bash
-sudo python3 update_3d_paws.py
-```
-
 ### Not Using OS Image
-If you already have a fully functioning Raspberry Pi that you'd like to install the software on, you'll need to download and unpack it by using the following commands in order. If 3d-paws is already installed on your system, refer to the Update section instead.
+If you already have a fully functioning Raspberry Pi that you'd like to install the software on, you'll need to download and unpack it by using the following commands in order. 
 
 ```bash
 cd /home/pi/
@@ -109,18 +103,10 @@ You can activate test mode by toggling it on in the Intervals Menu of the GUI, o
 ### Finding the Data
 If the option is activated, the pi will report to CHORDS and/or backup data to the RAL server. If you want to locate your data locally, you can find it in /home/pi/data/. Data gathered over a 24-hour period are stored into a single file.
 
-## Update
-The software will update itself every Monday morning at midnight UTC. To force an update sooner, open a terminal (make sure you're in /home/pi, which is the default when opening a terminal) and type 
-```bash
-sudo python3 update_3d_paws.py
-```
-
 ## Troubleshooting
 If a sensor isn't recording data, try the following steps:
 
-1. Run a software update (as shown above).
-
-2. Check if the sensor is connected. Open the command line and type
+1. Check if the sensor is connected. Open the command line and type
 ```bash
 i2cdetect -y 0
 ```
@@ -132,7 +118,7 @@ SHT31d: 0x44 or 0x45
 SI1145: 0x60
 BMP/BME 280: 0x77
 
-3. Check if it's recording data.
+2. Check if it's recording data.
 ```bash
 cd /home/pi/3d_paws/scripts/sensors/
 ```
@@ -144,19 +130,19 @@ sudo python3 mcp9808.py
 
 Note that doing so will double up on reporting; you should consider switching off the sensor in the GUI. If there's an error, email it to Joey Rener at jrener@ucar.edu
 
-4. Check if there is an issue with the reporting script.
+3. Check if there is an issue with the reporting script.
 ```bash
 cd /home/pi/3d_paws/scripts/upkeep/
 sudo python3 report.py
 ```
 
-5. Any errors that happen will be logged in the files in /tmp. For example, to look at the log file for the HTU21d sensor:
+4. Any errors that happen will be logged in the files in /tmp. For example, to look at the log file for the HTU21d sensor:
 ```bash
 cd /tmp
 more htu21d.log
 ```
 
-6. If all else fails, please email both Paul Kucera (pkucera@ucar.edu) and Joey Rener (jrener@ucar.edu) for assistance.
+5. If all else fails, please email both Paul Kucera (pkucera@ucar.edu) and Joey Rener (jrener@ucar.edu) for assistance.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
