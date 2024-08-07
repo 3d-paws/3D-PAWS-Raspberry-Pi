@@ -6,7 +6,7 @@
 ### Using an OS Image
 The 3D-PAWS OS and software are burned into a disk image. We recommend using this to setup your Raspberry Pi. Follow these steps to do so:
 
-1. On any computer, download the [OS image](https://drive.google.com/file/d/1ck8N7d2CWNkj50k7m8lLqwNjnUSTWsCz/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher).
+1. On any computer, download the [OS image](https://drive.google.com/file/d/115t75Z_Ava5XONaAJEYmVe27xC-teYVj/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher).
 
 2. Unzip the OS image. 
 
