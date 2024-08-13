@@ -6,13 +6,13 @@
 ### Using an OS Image
 The 3D-PAWS OS and software are burned into a disk image. We recommend using this to setup your Raspberry Pi. Follow these steps to do so:
 
-1. On any computer, download the [OS image](https://drive.google.com/file/d/115t75Z_Ava5XONaAJEYmVe27xC-teYVj/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher).
+1. On any computer, download the [OS image](https://drive.google.com/file/d/115t75Z_Ava5XONaAJEYmVe27xC-teYVj/view?usp=sharing) and [Balena Etcher](https://etcher.balena.io/#download-etcher). 
 
-2. Unzip the OS image. 
+2. Unzip the OS image. If you're using a Mac, we recommend [The Unarchiver](https://theunarchiver.com/) for this.
 
 3. Insert a micro-SD card to your computer that is at least 32 GB large (this will likely require a micro-SD to USB adapter).
 
-4. Open Etcher, selecting "Flash from File". Navigate to your unzipped image; within that folder, you'll find the .img file (you may need to select "All files" instead of "Image files" in the bottom of the search window in order to see this) and select the SD card as the target. Note that you need at least a 32 GB micro-SD card.
+4. Open Balena Etcher, selecting "Flash from File". Navigate to your unzipped image; within that folder, you'll find the .img file (you may need to select "All files" instead of "Image files" in the bottom of the search window in order to see this) and select the SD card as the target. Note that you need at least a 32 GB micro-SD card.
 
 5. Flash! 
 
