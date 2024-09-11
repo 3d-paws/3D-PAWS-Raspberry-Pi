@@ -2,7 +2,7 @@
 
 3D PAWS is a Python3 library used to run the various sensors of a [3D-PAWS station](https://sites.google.com/ucar.edu/3dpaws/home), including the BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, SS451A, and STH31D sensors. The software must be installed on a Raspberry Pi 3b, 3b+, or 4, which will control the sensors, data acquisition, archiving, data processing, and communication to remote data servers. Remote communications can be achieved through a wireless or cell-modem network.
 
-En español: https://github.com/3d-paws/3D-PAWS-Raspberry-Pi/blob/main/README.md
+En español: https://github.com/3d-paws/3D-PAWS-Raspberry-Pi/blob/main/README_es.md
 
 ## Step 1) Installation
 ### Using an OS Image
