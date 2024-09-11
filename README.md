@@ -2,6 +2,8 @@
 
 3D PAWS is a Python3 library used to run the various sensors of a [3D-PAWS station](https://sites.google.com/ucar.edu/3dpaws/home), including the BMP280, BME280, HTU21d, MCP9808, AS5600, 55300-00-02-A, SS451A, and STH31D sensors. The software must be installed on a Raspberry Pi 3b, 3b+, or 4, which will control the sensors, data acquisition, archiving, data processing, and communication to remote data servers. Remote communications can be achieved through a wireless or cell-modem network.
 
+En español: https://github.com/3d-paws/3D-PAWS-Raspberry-Pi/blob/main/README.md
+
 ## Step 1) Installation
 ### Using an OS Image
 The 3D-PAWS OS and software are burned into a disk image. We recommend using this to setup your Raspberry Pi. Follow these steps to do so:
@@ -112,11 +114,11 @@ i2cdetect -y 0
 ```
 
 If the sensor's address isn't listed, it isn't plugged in correctly. Check the connections. Below are the sensors' addresses. If it isn't listed, the sensor isn't I2C and can't be detected in this way.
-MCP9808: 0x18 
-HTU21D: 0x40 
-SHT31d: 0x44 or 0x45
-SI1145: 0x60
-BMP/BME 280: 0x77
+*MCP9808: 0x18 
+*HTU21D: 0x40 
+*SHT31d: 0x44 or 0x45
+*SI1145: 0x60
+*BMP/BME 280: 0x77
 
 2. Check if it's recording data.
 ```bash
