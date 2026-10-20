@@ -17,19 +17,31 @@ class ShowData(wx.Dialog):
         variables = helper_functions.getVariables()
         test_toggle = variables[0]
         # Grab the most recent data file and read its lines into a list
-        if test_toggle == "true":
+        # Particle parity sensors aren't in the recordings file, so read their own daily file
+        self.particle_sensor = self.sensor in helper_functions.PARTICLE_SENSORS
+        if self.particle_sensor:
+            script = helper_functions.PARTICLE_SENSORS[self.sensor]
+            if test_toggle == "true":
+                list_of_files = glob.glob('/home/pi/data/tests/' + script + '/' + script + '_*.dat')
+            else:
+                list_of_files = glob.glob('/home/pi/data/' + script + '_*.dat')
+        elif test_toggle == "true":
             list_of_files = glob.glob('/home/pi/data/tests/' + self.sensor + '*.dat')
-        else:
+        elif self.sensor == "Remote Stations":
             list_of_files = glob.glob('/home/pi/data/*.dat')
+        else:
+            list_of_files = glob.glob('/home/pi/data/recordings_*.dat')
+        self.content = []
         if len(list_of_files) > 0:
-            self.data = True
             latest_file = max(list_of_files, key=os.path.getctime)
             with open(latest_file) as f:
-                self.content = f.readlines()
+                self.content = [line for line in f.readlines() if not line.startswith("year")]
             # Only use the 5 most recent lines of data
             if len(self.content) > 5:
                 self.content = self.content[-5:]
-        # If there are no files found
+        if len(self.content) > 0:
+            self.data = True
+        # If there are no files (or only a header) found
         else:
             self.data = False
             self.content = ["There is no data for this sensor yet."]
@@ -55,6 +67,15 @@ class ShowData(wx.Dialog):
         # Show data for the correct sensor
         if self.data == False:
             vbox.Add(wx.StaticText(scrolled_panel, label=self.content[0]), flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT, border=20)
+        elif self.particle_sensor:
+            # Test lines are "<timestamp> <values...>"; daily lines are "<year mon day hour min> <interval> <values...>"
+            test_file = "_" in self.content[-1].split(" ")[0]
+            time_fields = 1 if test_file else 5
+            value_start = 1 if test_file else 6
+            for line in self.content:
+                line_parts = line.split()
+                info = ' '.join(line_parts[0 : time_fields]) + "  ->  " + ' '.join(line_parts[value_start :])
+                vbox.Add(wx.StaticText(scrolled_panel, label=info), flag=wx.ALIGN_CENTER|wx.LEFT|wx.RIGHT, border=20)
         else:
             if "BMP/BME" in self.sensor:
                 start = 6

@@ -8,6 +8,63 @@
 
 import datetime, re, sys, os, board, busio
 
+# Sensors added for Particle data logger parity -> GUI name: script/output name
+# Used by upkeep/environment.py (cron jobs) and gui/data_modal.py (data display)
+PARTICLE_SENSORS = {
+	"BMP581 sensor": "bmp581",
+	"SHT45 sensor": "sht45",
+	"B-LUX-V30B sensor": "b_lux_v30b",
+	"SEN0562 Light sensor": "bh1750",
+	"PM25AQI sensor": "pm25aqi",
+	"Maxbotix Distance sensor": "maxbotix",
+	"DS18B20 sensor": "ds18b20",
+	"SEN66 sensor": "sen66",
+	"Multigas sensor": "multigas",
+	"Weighing Rain Gauge sensor": "weighing_rain"
+}
+
+# Gases a DFRobot MultiGasSensor probe can measure, in the column order of the multigas daily file (O2 is %vol, the rest ppm)
+MULTIGAS_GASES = ["o2", "co", "h2s", "no2", "o3", "cl2", "nh3", "h2", "hcl", "so2", "hf", "ph3"]
+
+# Column names for each Particle parity sensor's daily .dat file (written by upkeep/report.py)
+PARTICLE_COLUMNS = {
+	"bmp581": "temp_c  pres_hpa  slp_hpa  alt_m",
+	"sht45": "temp_c  rh_pct",
+	"veml7700": "lux",
+	"b_lux_v30b": "lux",
+	"bh1750": "lux",
+	"pm25aqi": "pm1_0_ugm3  pm2_5_ugm3  pm10_ugm3",
+	"hdc302x": "temp_c  rh_pct",
+	"lps35hw": "pres_hpa  temp_c",
+	"hih8000": "temp_c  rh_pct",
+	"tinovi_leaf": "wetness  temp_c",
+	"tinovi_soil": "e25  ec  temp_c  vwc_pct",
+	"tinovi_multi_soil": "temp1_c  temp2_c  vwc1_pct  vwc2_pct  vwc3_pct  vwc4_pct  vwc5_pct",
+	"maxbotix": "distance_mm",
+	"pyranometer": "irradiance_wm2",
+	"ds18b20": "dst0_c  dst1_c  dst2_c  dst3_c  dst4_c  dst5_c  dst6_c  dst7_c",
+	"sen66": "pm1_0_ugm3  pm2_5_ugm3  pm4_0_ugm3  pm10_ugm3  rh_pct  temp_c  voc_index  nox_index  co2_ppm",
+	"multigas": "  ".join(g + ("_pct" if g == "o2" else "_ppm") for g in MULTIGAS_GASES),
+	"weighing_rain": "rain_g"
+}
+
+# True when a script was started by hand from a terminal rather than by cron, so its readings are saved as a test
+def isManualRun():
+	return sys.stdin is not None and sys.stdin.isatty()
+
+
+# Append one reading of a Particle parity sensor to its daily file
+def recordSensor(sensor, values):
+	interval = getCron()[0]
+	now = datetime.datetime.now(datetime.timezone.utc)
+	filename = create_filename('data/', '%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))
+	with open(filename, 'a') as file:
+		if os.path.getsize(filename) == 0:
+			file.write("year  mon  day  hour  min  int  " + PARTICLE_COLUMNS[sensor] + "\n")
+		line = "%4.4d %4.02d %4.02d %5.02d %4.02d %4d" % (now.year, now.month, now.day, now.hour, now.minute, interval)
+		file.write(line + "".join(" %10.2f" % float(v) for v in values) + "\n")
+
+
 # Get script arguments
 def getVariables():
 	# Open the variables file, or make it if it doesn't exist
@@ -79,7 +136,7 @@ def output(show, line, sensor, remote = None):
 	elif sensor == "chords":
 		filename = create_filename('data/temporary/', 'chords.tmp')
 		full_line = line
-	elif inputs[0] == "true" or "test_" in sensor:
+	elif inputs[0] == "true" or "test_" in sensor or isManualRun():
 		if "test_" in sensor:
 			sensor = sensor.replace("test_", "")
 		filename = create_filename('data/tests/' + sensor + '/', '%s_%4d_%02d_%02d.dat' %(sensor, now.year, now.month, now.day))

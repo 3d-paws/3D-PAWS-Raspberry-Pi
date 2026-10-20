@@ -1,0 +1,256 @@
+================================================================================
+  3D-PAWS Raspberry Pi — Particle Sensor Parity Update
+  Prepared: 2026-05-15
+  Contact:  wnicewonger@ucar.edu
+================================================================================
+
+OVERVIEW
+--------
+This update adds support for every sensor used on the 3D-PAWS Particle data
+logger that was not previously available on the Raspberry Pi station software.
+Fourteen new sensor scripts were added, the GUI was updated to include them,
+and the dependency list in setup.py was extended.
+
+
+--------------------------------------------------------------------------------
+FILES CHANGED
+--------------------------------------------------------------------------------
+
+NEW sensor scripts (scripts/sensors/):
+  veml7700.py          — Adafruit VEML7700 ambient light (lux)
+  pm25aqi.py           — Adafruit PM25AQI air quality (PM1.0 / PM2.5 / PM10)
+  hdc302x.py           — Adafruit HDC302x temperature & humidity
+  lps35hw.py           — Adafruit LPS35HW water-resistant pressure
+  bmp581.py            — Bosch BMP581 barometric pressure & temp (direct I2C, no library)
+  sht45.py             — Adafruit SHT45 (SHT4x) temperature & humidity
+  maxbotix.py          — Maxbotix ultrasonic distance sensor (via ADS1115 ADC)
+  pyranometer.py       — SP Lite2 Pyranometer / Kipp & Zonen (via ADS1115 ADC)
+  b_lux_v30b.py        — DFRobot B-LUX-V30B ambient light (I2C 0x4A)
+  hih8000.py           — Honeywell HIH8000 temperature & humidity (I2C 0x27)
+  tinovi_leaf.py       — Tinovi LeafSens leaf wetness & temperature (I2C 0x61)
+  tinovi_soil.py       — Tinovi i2cArduino soil moisture & temp (I2C 0x63)
+  tinovi_multi_soil.py — Tinovi i2cMultiSm 5-zone soil moisture (I2C 0x65)
+  ds18b20.py           — Dallas DS18B20 probes via DS2482S-800 bridge (I2C 0x1F)
+
+NEW GUI window:
+  scripts/gui/dashboard.py      — "Dashboard" button: latest value and a 24-hour chart
+                                  for every sensor that is turned on (refreshes every
+                                  30 s; shows test readings while in test mode)
+  scripts/gui/dashboard_terminal.py — Same dashboard as text, for viewing over ssh:
+                                  sudo python3 /home/pi/3d_paws/scripts/gui/dashboard_terminal.py
+                                  (add --once to print it one time)
+  scripts/gui/dashboard_data.py — Reads the sensor data for both dashboards
+
+NEW sensor scripts from the Particle SensorTesting firmware (scripts/sensors/):
+  sen66.py             — Sensirion SEN66: PM1.0/2.5/4.0/10, humidity, temperature,
+                         VOC index, NOx index, CO2 (I2C 0x6B)
+  multigas.py          — DFRobot MultiGasSensor probes: O2, CO, H2S, NO2, O3, CL2, NH3,
+                         H2, HCL, SO2, HF, PH3 (I2C 0x74-0x77, every probe found is read)
+  weighing_rain.py     — Weighing rain gauge on a DFRobot HX711 I2C weight sensor
+                         (I2C 0x64-0x67); reports grams gained since the last report
+  bh1750.py            — DFRobot SEN0562 ambient light, 1-65535 lux (BH1750 chip,
+                         I2C 0x23); CHORDS name dfrl1
+  These have GUI On/Off buttons, cron jobs, daily .dat files, CHORDS uploads and
+  dashboard tiles. CHORDS names match the SensorTesting firmware: s66-Pm2p5-1,
+  s66-co2-1, dfrg-co-1, wrg-1, etc.
+
+MODIFIED files:
+  scripts/gui/main.py           — New sensors added to the GUI toggle/data panel (only
+                                  BMP581, SHT45, B-LUX-V30B, PM25AQI, Maxbotix and DS18B20;
+                                  VEML7700, HDC302x, LPS35HW, HIH8000, the three Tinovi
+                                  sensors and the pyranometer have scripts but no GUI
+                                  On/Off button, cron job, or dashboard tile),
+                                  plus the Dashboard button
+  scripts/gui/data_modal.py     — "Data" button shows readings for the new sensors
+  scripts/helper_functions.py   — PARTICLE_SENSORS list (GUI name -> script name)
+  scripts/upkeep/environment.py — Creates a cron job for each new sensor (off by
+                                  default) so the GUI On/Off buttons work
+  setup.py                      — New Python package dependencies added
+
+  scripts/upkeep/report.py      — CHORDS uploads now use the Particle short names
+                                  (bp1, bt1, st1, sh1, mt1, rg, rgt, rgp, ws, wd, ...)
+                                  and include all 14 new sensors. Each new sensor
+                                  that records a reading is also saved to its own
+                                  daily file: /home/pi/data/<sensor>_YYYY_MM_DD.dat
+  scripts/helper_functions.py   — Sensor scripts started by hand from a terminal
+                                  save to /home/pi/data/tests/<sensor>/ instead of
+                                  being reported (cron runs are unchanged)
+
+NOTES:
+  The original 14-column recordings_*.dat file is unchanged; the new sensors
+  have their own daily files (with a header row naming each column).
+  Existing CHORDS instruments that were set up with the old long names
+  (bmp_temp, sth31d_humidity, wind_speed, ...) must have their variable short
+  names changed to the Particle names to keep receiving data.
+
+
+--------------------------------------------------------------------------------
+NEW PYTHON PACKAGES REQUIRED
+--------------------------------------------------------------------------------
+
+The following packages must be installed on the Pi (in addition to what was
+already installed). The setup.py update handles this automatically when the
+official update script is run. For a manual install, run:
+
+  sudo pip3 install smbus2 \
+                   adafruit-circuitpython-veml7700 \
+                   adafruit-circuitpython-pm25 \
+                   adafruit-circuitpython-hdc302x \
+                   adafruit-circuitpython-lps35hw \
+                   adafruit-circuitpython-ads1x15 \
+                   adafruit-circuitpython-sht4x
+
+
+--------------------------------------------------------------------------------
+SENSOR CONFIGURATION NOTES
+--------------------------------------------------------------------------------
+
+1. PYRANOMETER (pyranometer.py)
+   Create the file  /home/pi/Desktop/pyranometer_cal.txt  with two lines:
+     Line 1: sensitivity constant from your sensor label (µV per W/m²)
+             e.g.  75.0
+     Line 2: dark offset (raw ADS1115 count reading with sensor covered)
+             e.g.  0.0
+   If the file does not exist the script uses defaults (75.0 / 0.0).
+
+   Wiring to ADS1115:
+     SP Lite2 Red   → ADS1115 A0
+     SP Lite2 Blue  → ADS1115 A1
+     SP Lite2 Shield (Black) → ADS1115 GND
+
+2. MAXBOTIX DISTANCE SENSOR (maxbotix.py)
+   The script defaults to a 5-metre sensor (MB7360/MB7369/MB7380/MB7389).
+   For 10-metre sensors (MB7363/MB7366/MB7383/MB7386), open the script and
+   change line:
+     MAXBOTIX_RANGE_M = 5
+   to:
+     MAXBOTIX_RANGE_M = 10
+
+   Wiring: sensor analog output → ADS1115 A0 (single-ended)
+
+3. DS18B20 / DS2482S-800 (ds18b20.py)
+   The script automatically scans all 8 channels at startup and reports only
+   the channels where a probe is detected. No manual configuration needed.
+   DS2482S-800 must be wired to I2C address 0x1F (all address pins HIGH).
+
+4. TINOVI SENSORS — default I2C addresses:
+     LeafSens       0x61
+     i2cArduino     0x63
+     i2cMultiSm     0x65
+   These match the Particle firmware defaults. If you have re-addressed a
+   sensor, update the ADDRESS constant at the top of the relevant script.
+
+5. B-LUX-V30B (b_lux_v30b.py)
+   Fixed I2C address 0x4A — no configuration needed.
+
+6. HIH8000 (hih8000.py)
+   Fixed I2C address 0x27 — no configuration needed.
+
+7. SEN66 (sen66.py)
+   Uses the station altitude from the GUI for CO2 compensation. The altitude is
+   applied when the sensor starts measuring (after it is powered on). The VOC and
+   NOx indexes need time to learn their baseline after power-up, so expect them
+   to settle over the first hour.
+
+8. MULTIGAS (multigas.py)
+   Set each probe to its own I2C address (0x74-0x77) with the A0/A1 switches.
+   Readings use DFRobot's temperature compensation; when the probe's temperature is
+   outside the compensated range the reading is skipped rather than reported as 0.
+
+9. WEIGHING RAIN GAUGE (weighing_rain.py)
+   Calibrate the HX711 board with its CAL button and a known weight, installed with
+   the collector in place. The first run sets the zero point; start with the gauge
+   empty. Pressing the board's tare button resets the zero point. The running
+   baseline is kept in /home/pi/data/weighing_rain_state.json - delete that file to
+   start over. Rain is reported in grams, like the firmware.
+
+
+--------------------------------------------------------------------------------
+HOW TO UPDATE THE RASPBERRY PI
+--------------------------------------------------------------------------------
+
+OPTION A — DIRECT COPY OVER THE NETWORK (fastest, good for testing)
+---------------------------------------------------------------------
+Use this if the Pi is on the same network as your Mac and you do not need
+to commit the changes to GitHub first.
+
+Step 1 — Copy the new and updated scripts to the Pi:
+  rsync -avz /Users/wnicewonger/Desktop/3D-PAWS-Raspberry-Pi/scripts/ \
+        pi@<PI_IP_ADDRESS>:/home/pi/3d_paws/scripts/
+
+Step 2 — (no longer needed; Step 1 copies the GUI and upkeep files too)
+
+Step 3 — SSH into the Pi and install new Python packages:
+  ssh pi@<PI_IP_ADDRESS>
+  sudo pip3 install smbus2 \
+                   adafruit-circuitpython-veml7700 \
+                   adafruit-circuitpython-pm25 \
+                   adafruit-circuitpython-hdc302x \
+                   adafruit-circuitpython-lps35hw \
+                   adafruit-circuitpython-ads1x15 \
+                   adafruit-circuitpython-sht4x
+
+Step 4 — Rebuild the cron so the new sensors get On/Off jobs (keeps the
+         current on/off state of existing sensors):
+  sudo python3 /home/pi/3d_paws/scripts/upkeep/environment.py
+
+Step 5 — Restart the 3D-PAWS controller GUI on the Pi to see the new sensors.
+
+Replace <PI_IP_ADDRESS> with your Pi's actual IP address (e.g. 192.168.1.42).
+Find it by running  hostname -I  on the Pi, or checking your router's device list.
+
+
+OPTION B — PUSH TO GITHUB, THEN RUN THE BUILT-IN UPDATE SCRIPT (production)
+-----------------------------------------------------------------------------
+Use this if you have push access to github.com/3d-paws/3D-PAWS-Raspberry-Pi
+and want the changes to go out to all stations via the normal update path.
+
+Step 1 — On your Mac, commit and push the changes:
+  cd /Users/wnicewonger/Desktop/3D-PAWS-Raspberry-Pi
+  git add scripts/ setup.py PARTICLE_SENSOR_UPDATE.txt
+  git commit -m "Add Particle sensor parity: 14 new sensor scripts"
+  git push
+
+Step 2 — SSH into the Pi:
+  ssh pi@<PI_IP_ADDRESS>
+
+Step 3 — Run the built-in update script:
+  sudo python3 /home/pi/3d_paws/scripts/upkeep/update_3d_paws.py
+
+  This script will:
+    • Back up existing data and variable files
+    • Download a fresh copy of the repo from GitHub
+    • Install all dependencies listed in setup.py (including the new ones)
+    • Update the cron schedule
+    • Reboot the Pi automatically when done
+
+NOTE: The update script re-clones the entire repo. Any local edits on the Pi
+(such as pyranometer_cal.txt) that live outside /home/pi/3d_paws are safe.
+Files inside /home/pi/3d_paws will be replaced by the GitHub version.
+
+
+--------------------------------------------------------------------------------
+TESTING A SENSOR AFTER UPDATE
+--------------------------------------------------------------------------------
+
+Each sensor script can be run directly from the terminal on the Pi for a quick
+hardware check. The script will print one reading to the screen and exit.
+Readings from a script started by hand are saved to
+/home/pi/data/tests/<sensor>/ and are NOT sent to CHORDS or the daily files.
+
+Example — test the VEML7700:
+  sudo python3 /home/pi/3d_paws/scripts/sensors/veml7700.py
+
+Example — test the DS18B20 probes:
+  sudo python3 /home/pi/3d_paws/scripts/sensors/ds18b20.py
+
+To run a sensor in continuous test mode (one reading every 10 seconds),
+enable "test mode" in the 3D-PAWS GUI (Settings → Intervals → Test Mode)
+before running the script, or temporarily edit variables.txt:
+  /home/pi/Desktop/variables.txt  → change first value from "false" to "true"
+Remember to set it back to "false" after testing.
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================

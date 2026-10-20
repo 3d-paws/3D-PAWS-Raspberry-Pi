@@ -13,14 +13,24 @@ import sys
 sys.path.insert(0, scripts)
 from crontab import CronTab
 import wx.lib.scrolledpanel as scrolled
-import helper_functions, wx, barometric_menu, interval_menu, backup_menu, relay_menu, data_modal, os
+import helper_functions, wx, barometric_menu, interval_menu, backup_menu, relay_menu, data_modal, dashboard, os
 
 # Used to give each start/stop toggle button a referenceable id
 SENSOR_IDS = {
     "BMP/BME sensor":wx.Window.NewControlId(),
+    "BMP581 sensor":wx.Window.NewControlId(),
     "Humidity sensor":wx.Window.NewControlId(),
+    "SHT45 sensor":wx.Window.NewControlId(),
     "MCP9808 sensor":wx.Window.NewControlId(),
     "SI1145 sensor":wx.Window.NewControlId(),
+    "B-LUX-V30B sensor":wx.Window.NewControlId(),
+    "SEN0562 Light sensor":wx.Window.NewControlId(),
+    "PM25AQI sensor":wx.Window.NewControlId(),
+    "Maxbotix Distance sensor":wx.Window.NewControlId(),
+    "DS18B20 sensor":wx.Window.NewControlId(),
+    "SEN66 sensor":wx.Window.NewControlId(),
+    "Multigas sensor":wx.Window.NewControlId(),
+    "Weighing Rain Gauge sensor":wx.Window.NewControlId(),
     "Tipping Bucket sensor":wx.Window.NewControlId(),
     "Wind Direction sensor":wx.Window.NewControlId(),
     "Wind Speed sensor":wx.Window.NewControlId()
@@ -29,9 +39,19 @@ SENSOR_IDS = {
 # Used to give each data button a referenceable id
 DATA_IDS = {
     "BMP/BME sensor":wx.Window.NewControlId(),
+    "BMP581 sensor":wx.Window.NewControlId(),
     "Humidity sensor":wx.Window.NewControlId(),
+    "SHT45 sensor":wx.Window.NewControlId(),
     "MCP9808 sensor":wx.Window.NewControlId(),
     "SI1145 sensor":wx.Window.NewControlId(),
+    "B-LUX-V30B sensor":wx.Window.NewControlId(),
+    "SEN0562 Light sensor":wx.Window.NewControlId(),
+    "PM25AQI sensor":wx.Window.NewControlId(),
+    "Maxbotix Distance sensor":wx.Window.NewControlId(),
+    "DS18B20 sensor":wx.Window.NewControlId(),
+    "SEN66 sensor":wx.Window.NewControlId(),
+    "Multigas sensor":wx.Window.NewControlId(),
+    "Weighing Rain Gauge sensor":wx.Window.NewControlId(),
     "Tipping Bucket sensor":wx.Window.NewControlId(),
     "Wind Direction sensor":wx.Window.NewControlId(),
     "Wind Speed sensor":wx.Window.NewControlId()
@@ -104,9 +124,13 @@ class Window(wx.Frame):
             self.AddRow(scrolled_panel, sizer, sensor[0])
         # Create button area
         button_area = wx.BoxSizer(wx.HORIZONTAL)
+        # Create Dashboard button
+        dashboard_button = wx.Button(scrolled_panel, label="Dashboard", size=((110, 40)))
+        button_area.Add(dashboard_button, flag=wx.LEFT, border=25)
+        self.Bind(wx.EVT_BUTTON, self.OpenDashboard, id=dashboard_button.GetId())
         # Create Start All button
         start_all_button = wx.Button(scrolled_panel, label="Start All", size=((80, 40)))
-        button_area.Add(start_all_button, flag=wx.LEFT, border=340)
+        button_area.Add(start_all_button, flag=wx.LEFT, border=205)
         self.Bind(wx.EVT_BUTTON, self.StartAllSensors, id=start_all_button.GetId())
         # Create Stop All button
         stop_all_button = wx.Button(scrolled_panel, label="Stop All", size=((80, 40)))
@@ -199,6 +223,22 @@ class Window(wx.Frame):
         cdDialog.ShowModal()
         cdDialog.Destroy()
     
+
+    def OpenDashboard(self, e):
+        # Only keep one dashboard open; bring it to the front if it already is
+        if getattr(self, "dashboard", None):
+            self.dashboard.Raise()
+            return
+        self.dashboard = dashboard.Dashboard(None)
+        self.dashboard.Bind(wx.EVT_WINDOW_DESTROY, self.OnDashboardClosed)
+        self.dashboard.Show()
+
+
+    def OnDashboardClosed(self, e):
+        if e.GetEventObject() is self.dashboard:
+            self.dashboard = None
+        e.Skip()
+
 
     def ToggleSensor(self, e):
         # Find the sensor in the cron and toggle its enabled status

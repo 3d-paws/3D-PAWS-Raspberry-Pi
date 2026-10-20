@@ -34,8 +34,16 @@ setup(
             "setuptools==40.8.0",
             "SI1145==1.0.2",
             "smbus==1.1.post2",
+            "smbus2",
             "spidev==3.5",
-            "wxPython==4.0.4"
+            "wxPython==4.0.4",
+            # Particle sensor parity additions
+            "adafruit-circuitpython-veml7700",
+            "adafruit-circuitpython-pm25",
+            "adafruit-circuitpython-hdc302x",
+            "adafruit-circuitpython-lps35hw",
+            "adafruit-circuitpython-ads1x15",
+            "adafruit-circuitpython-sht4x",
         ], 
 
         keywords=['3d', 'paws'],

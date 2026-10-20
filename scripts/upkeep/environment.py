@@ -98,6 +98,13 @@ wind_spd.minute.every(report_interval)
 wind_spd.set_comment("Wind Speed sensor")
 wind_spd.enable(True if "Wind Speed sensor" in active else False)
 
+#Particle parity sensor crons (off by default, toggled from the GUI)
+for comment, script in helper_functions.PARTICLE_SENSORS.items():
+    job = cron.new(command='python3 ' + root_path + 'sensors/' + script + '.py >> /tmp/' + script + '.log 2>&1')
+    job.minute.every(report_interval)
+    job.set_comment(comment)
+    job.enable(True if comment in active else False)
+
 
 #Write the cron and print it
 cron.write()
