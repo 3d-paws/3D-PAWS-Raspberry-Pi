@@ -37,7 +37,7 @@ class Operator:
     def __init__(self, rates=(60,), gpt=6.0, keep_filling=True, missed=(), flag_answer=""):
         self.tmp = tempfile.TemporaryDirectory()
         drc.DATA_DIR = self.tmp.name
-        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates))
+        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates), manual=True)
         self.s = drc.Session(args)
         self.s.source = FakeGauge()
         self.gpt, self.keep_filling, self.missed, self.flag_answer = gpt, keep_filling, set(missed), flag_answer
@@ -103,6 +103,87 @@ class Test(unittest.TestCase):
         s = op.s
         s.phase, s.tare = "running", {"A": 553.0, "B": 550.0}
         return op, s
+
+
+class FakeScale:
+    """Stands in for the load cell: a 400 g container plus gpt grams for every tip so far, including
+    tips the gauge didn't detect. bump() takes water off from the next tip on (container lifted)."""
+
+    def __init__(self, op, container=400.0):
+        self.op, self.container = op, container
+        self.removed = 0.0
+
+    def _load(self):
+        tips = len(self.op.s.tips) + sum(1 for m in self.op.missed if m < self.op.fed)
+        return self.container + self.op.gpt * tips - self.removed
+
+    def grams_before(self, t, window, guard):
+        return self._load()
+
+    def grams_now(self):
+        return self._load()
+
+    def empty(self):
+        self.removed += self._load() - self.container
+
+    def bump(self, grams):
+        self.removed += grams
+
+
+class LoadCellOperator(Operator):
+    """Runs a load cell session: no bucket prompts, the scale weighs every run."""
+
+    def __init__(self, rates=(60,), gpt=6.0, missed=(), flag_answer="", container=400.0, bumps=None, stop_at_last_run=False):
+        self.tmp = tempfile.TemporaryDirectory()
+        drc.DATA_DIR = self.tmp.name
+        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates), manual=False)
+        self.s = drc.Session(args)
+        self.s.source = FakeGauge()
+        self.gpt, self.missed, self.flag_answer = gpt, set(missed), flag_answer
+        self.bumps = bumps or {}       # tip number -> grams lifted off just before it
+        self.stop_at_last_run = stop_at_last_run   # the drip is turned off right after the last run
+        self.fed = 0
+        self.s.scale = FakeScale(self, container)
+        self.out = io.StringIO()
+        with contextlib.redirect_stdout(self.out):
+            self.s.setup()
+
+    def answer_prompts(self):
+        s = self.s
+        while s.prompts:
+            text = s.prompts[0]["text"]
+            if text.startswith("When the script says STEADY"):
+                if not s.steady:
+                    return
+                s.answer("")
+            elif text.startswith("The scale holds"):
+                s.answer("")
+            elif text.startswith("FLAG"):
+                s.answer(self.flag_answer)
+            elif text.startswith("Which rate"):
+                s.answer(format(s.stats[0]["rate_mm_h"], "g"))
+            else:
+                raise AssertionError("Unexpected prompt: " + text)
+
+    def run(self, max_tips=5000):
+        s, t = self.s, 0.0
+        with contextlib.redirect_stdout(self.out):
+            for tip in range(max_tips):
+                self.answer_prompts()
+                if s.finished:
+                    return self
+                t += 60.0 / s.target
+                if self.stop_at_last_run and s.phase == "finishing" and s.rate_i == len(s.rates) - 1:
+                    s.clock.now = lambda: t + 1000.0     # drip off: time passes with no tips
+                    s.poll()
+                    self.answer_prompts()
+                    return self
+                if tip in self.bumps:
+                    s.scale.bump(self.bumps[tip])
+                self.fed = tip + 1
+                if tip not in self.missed:
+                    s.on_tip(t)
+        raise AssertionError("Session did not finish")
 
 
 def make_run(n=1, off=0.0, irregular=0, bucket="A"):
@@ -229,6 +310,120 @@ class WeighingTests(Test):
             self.ask_full(s, run)
             s.answer("5850")
         self.assertTrue(any("scale limit" in p["text"] for p in s.prompts))
+
+
+class LoadCellTests(Test):
+
+    def lc_operator(self, **kwargs):
+        op = LoadCellOperator(**kwargs)
+        self.addCleanup(op.close)
+        return op
+
+    def test_clean_session_weighs_every_run_from_the_scale(self):
+        op = self.lc_operator(rates=(60,)).run()
+        runs = op.runs_at(0)
+        self.assertEqual(len(runs), drc.RUNS_PER_RATE)
+        self.assertTrue(all(r["kept"] for r in runs))
+        self.assertTrue(all(abs(r["g_per_tip"] - 6.0) < 1e-9 for r in runs))
+        self.assertNotIn("BUCKET", op.out.getvalue())
+        with open(os.path.join(op.s.dir, "result.json")) as f:
+            self.assertAlmostEqual(json.load(f)["rates"][0]["ml_per_tip"], 6.0 / drc.DENSITY, places=3)
+
+    def test_runs_are_back_to_back_and_weighed_at_the_next_tip(self):
+        op = self.lc_operator(rates=(60,)).run()
+        runs = op.runs_at(0)
+        for previous, following in zip(runs, runs[1:]):
+            self.assertEqual(following["start_tip"], previous["end_tip"])
+            self.assertAlmostEqual(following["start_g"], previous["end_g"])
+
+    def test_missed_tip_in_the_last_run_is_still_replaced(self):
+        # Manual mode can't replace the last run of a rate; with the load cell the rate waits for it.
+        # Run 5 covers tips of about 106-130, so tip 120 is inside it
+        op = self.lc_operator(rates=(60,), missed=(120,)).run()
+        runs = op.runs_at(0)
+        self.assertIs(runs[4]["kept"], False)
+        self.assertEqual(len(runs), drc.RUNS_PER_RATE + 1)
+        self.assertEqual(sum(1 for r in runs if r["kept"]), drc.RUNS_PER_RATE)
+
+    def test_bumped_container_defaults_to_discard(self):
+        op = self.lc_operator(rates=(60,), bumps={40: 20.0}).run()
+        bumped = [r for r in op.runs_at(0) if "dropped" in (r.get("note") or "")]
+        self.assertEqual(len(bumped), 1)
+        self.assertIs(bumped[0]["kept"], False)
+        self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+
+    def test_out_of_range_run_is_discarded_without_asking(self):
+        op = self.lc_operator(rates=(60,))
+        s = op.s
+        with contextlib.redirect_stdout(op.out):
+            run = dict(make_run(), start_tip=0, end_tip=25, bucket=None)
+            s.runs.append(run)
+            s.pending.append(run)
+            s._weigh_run(run, [400.0] * 25 + [450.0])      # 50 g = 2 g/tip
+        self.assertIs(run["kept"], False)
+        self.assertFalse(any(p["text"].startswith("FLAG") for p in s.prompts))
+
+    def test_container_emptied_between_rates_when_near_the_limit(self):
+        op = self.lc_operator(rates=(30, 60), container=3500.0).run()
+        self.assertIn("Empty the container", op.out.getvalue())
+        self.assertEqual([st["rate_mm_h"] for st in op.s.stats], [30, 60])
+
+    def test_no_empty_prompt_with_room_to_spare(self):
+        op = self.lc_operator(rates=(30, 60)).run()
+        self.assertNotIn("Empty the container", op.out.getvalue())
+
+    def test_last_run_weighed_when_the_drip_is_turned_off(self):
+        op = self.lc_operator(rates=(60,), stop_at_last_run=True).run()
+        self.assertTrue(op.s.finished)
+        self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+        self.assertIn("weighing it from the current reading", op.out.getvalue())
+
+
+class ScaleCalibrationTests(unittest.TestCase):
+
+    def setUp(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "sensors", "nau7802.py")
+        spec = importlib.util.spec_from_file_location("nau7802", path)
+        self.nau = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.nau)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = os.path.join(self.tmp.name, "loadcell_cal.json")
+
+    class FakeCell:
+        """Raw counts: 12000 with nothing on, 430 counts per gram, a little scatter."""
+        def __init__(self, readings):
+            self.readings, self.cal = list(readings), None
+
+        def raw_settled(self, seconds=0):
+            return self.readings.pop(0), 40.0
+
+        def grams_now(self):
+            return 1000.0
+
+    def test_signed_24_bit(self):
+        self.assertEqual(self.nau.to_signed24(0x7F, 0xFF, 0xFF), 8388607)
+        self.assertEqual(self.nau.to_signed24(0xFF, 0xFF, 0xFF), -1)
+        self.assertEqual(self.nau.to_signed24(0x80, 0x00, 0x00), -8388608)
+
+    def test_calibration_counts_per_gram_and_saved(self):
+        cell = self.FakeCell([12000.0, 12000.0 + 430 * 1000])
+        answers = iter(["", "1000"])
+        cal = self.nau.calibrate(cell, self.path, ask=lambda _: next(answers), say=lambda _: None)
+        self.assertAlmostEqual(cal["counts_per_g"], 430.0)
+        self.assertAlmostEqual(self.nau.load_cal(self.path)["zero"], 12000.0)
+
+    def test_no_change_with_the_weight_on_starts_over(self):
+        cell = self.FakeCell([12000.0, 12000.0, 12000.0, 12000.0 + 430 * 500])
+        answers = iter(["", "1000", "", "500"])
+        cal = self.nau.calibrate(cell, self.path, ask=lambda _: next(answers), say=lambda _: None)
+        self.assertAlmostEqual(cal["counts_per_g"], 430.0)
+
+    def test_saved_calibration_reused_unless_c(self):
+        self.nau.save_cal(self.path, {"zero": 1.0, "counts_per_g": 430.0, "mass_g": 1000, "date": "2026-10-27"})
+        cell = self.FakeCell([])
+        self.nau.use_or_calibrate(cell, self.path, ask=lambda _: "", say=lambda _: None)
+        self.assertEqual(cell.cal["counts_per_g"], 430.0)
 
 
 class ResultTests(Test):

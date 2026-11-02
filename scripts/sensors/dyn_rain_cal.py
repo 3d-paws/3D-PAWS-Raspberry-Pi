@@ -2,25 +2,47 @@
 """
 dyn_rain_cal.py  -  3D-PAWS tipping bucket dynamic (multi-rate) calibration
 
-Walks the operator through the manual-weighing procedure:
-  set the drip to a target tips/min -> wait for STEADY -> 5 runs of 25 tips,
-  swapping buckets A and B at each run boundary -> enter weights -> next rate.
+Two ways to weigh the water:
+
+Load cell (default) - a SparkFun Qwiic Scale (NAU7802, I2C 0x2A) with a 5 kg load cell sits
+under the gauge with one container on it. All water, from both buckets, collects there for the
+whole session and the script reads the weight just before every tip, so there is nothing to
+swap or type:
+  set the drip to a target tips/min -> wait for STEADY -> 5 runs of 25 tips -> next rate.
+The load cell is calibrated at the start (empty platform, then a known weight); the calibration
+is saved in /home/pi/data/tests/loadcell_cal.json and offered again next time.
+
+Manual (--manual) - buckets A and B are swapped under the gauge at each run boundary and
+weighed on a kitchen scale; the weights are typed in.
+
 At the end it shows the rim radius and the % error at every rate for each
 possible sizing rate, asks which one to use, and saves everything.
 
-Install:  /home/pi/3d_paws/scripts/sensors/dyn_rain_cal.py
+Install:  /home/pi/3d_paws/scripts/sensors/dyn_rain_cal.py and nau7802.py
 Results:  /home/pi/data/tests/dyn_rain_cal_<GaugeID>_<date_time>/
 
 Usage (from /home/pi/3d_paws/scripts/sensors/):
-  python3 dyn_rain_cal.py                     real gauge on the GPIO pin below
+  python3 dyn_rain_cal.py                     real gauge on the GPIO pin below, weighed by the load cell
+  python3 dyn_rain_cal.py --manual            real gauge, buckets weighed by hand
+  python3 dyn_rain_cal.py --calibrate-scale   only calibrate the load cell, then show live readings
   python3 dyn_rain_cal.py --sim               simulated gauge in real time (training)
   python3 dyn_rain_cal.py --sim --speed 60    simulated, 60x faster
-  python3 dyn_rain_cal.py --sim --speed 300 --auto   fully automatic demo run
+  python3 dyn_rain_cal.py --sim --speed 300 --auto   fully automatic demo run (add --manual for the manual procedure)
 
 Stop the 3D-PAWS station software first if it is running on this Pi,
 so it is not reading the same GPIO pin (turn off Tipping Bucket in the controller).
 
-During a session:
+Load cell session:
+  Enter            at "press Enter" once the drip is STEADY: starts run 1 (type 'force' to skip the check)
+  y / n / Enter    at a FLAG prompt: keep / discard / take the recommended answer
+                   - discard recommended: a missed or extra tip, the drip >10% off target, or the
+                     scale reading dropping during the run (container bumped or lifted)
+  Enter            at "Empty the container": after emptying it and putting it back. Asked only
+                   between rates, when the next rate could pass the 5 kg limit.
+  A run's weight is read at the tip after it ends. Runs outside 5-7.5 g/tip are discarded
+  automatically. Each discarded run adds one replacement run, including the last run of a rate.
+
+Manual session:
   Enter            at "press Enter" once the drip is STEADY: starts run 1 (type 'force' to skip the check)
   <grams>          at a weigh prompt: the scale reading
   Enter            at "Empty bucket ... or press Enter": keep filling - the full weight becomes the
@@ -67,7 +89,13 @@ FLAG_PCT = 2.0            # flag a run this far from the others
 GPT_RANGE = (5.0, 7.5)    # acceptable grams per tip; outside this, re-enter or discard (tip volume rises at high rates)
 IDEAL_GPT = (5.5, 6.5)    # target grams per tip; rates outside it are marked in the final summary
 DISCARD_OFF_PCT = 10.0    # a run averaging more than this % off the target rate defaults to discard
-SCALE_MAX_G = 6000        # scale capacity; warn before a bucket that keeps filling would exceed it
+SCALE_MAX_G = 6000        # manual: scale capacity; warn before a bucket that keeps filling would exceed it
+LOADCELL_MAX_G = 5000     # load cell capacity, container included
+PRE_WINDOW_S = 1.0        # load cell: the weight before a tip is the median of the readings in this window...
+PRE_GUARD_S = 0.1         # ...ending this long before the tip, so the tip's own splash isn't included
+DISTURB_G = 10.0          # load cell: a drop this large between tips means the container was bumped or lifted
+NO_TIP_WAIT_S = 15.0      # load cell: if no tip follows a run's last one (drip off), weigh it after this long
+                          # (or two tip intervals, whichever is longer) from the scale's current reading
 IRREGULAR = (0.6, 1.6)    # a tip interval outside these multiples of the run's median suggests a missed or extra tip
 DATA_DIR = "/home/pi/data/tests"   # fixed path, so running with or without sudo saves to the same place
 
@@ -118,6 +146,7 @@ class SimGauge:
         self.q, self.clock, self.speed = q, clock, speed
         self.target, self.tpm = None, 0.6
         self.masses = []
+        self.log = []                  # (tip time, grams) for the simulated load cell
         self.rng = random.Random(3)
         threading.Thread(target=self._run, daemon=True).start()
 
@@ -135,10 +164,41 @@ class SimGauge:
             v0 = 6.10 * (1.008 if n % 2 == 0 else 0.992)
             self.masses.append(v0 / (1 - 0.27 / interval) * (1 + self.rng.gauss(0, 0.003)))
             n += 1
-            self.q.put(("tip", self.clock.now()))
+            t = self.clock.now()
+            self.log.append((t, self.masses[-1]))
+            self.q.put(("tip", t))
 
     def grams(self, first, last):
         return sum(self.masses[first:last + 1])
+
+
+class SimScale:
+    """Simulated load cell: a 400 g container, and each tip's water lands on it DRAIN_S after the tip."""
+    DRAIN_S = 1.5
+    CONTAINER_G = 400.0
+
+    def __init__(self, gauge, clock):
+        self.gauge, self.clock = gauge, clock
+        self.emptied = 0.0
+        self.rng = random.Random(5)
+
+    def _load(self, t):
+        water = sum(m for tt, m in list(self.gauge.log) if tt + self.DRAIN_S <= t)
+        return self.CONTAINER_G + water - self.emptied + self.rng.gauss(0, 0.05)
+
+    def grams_before(self, t, window, guard):
+        return self._load(t - guard)
+
+    def grams_now(self):
+        return self._load(self.clock.now())
+
+    def empty(self):
+        self.emptied += self.grams_now() - self.CONTAINER_G
+
+
+def cal_path():
+    """Where the load cell calibration is kept between sessions."""
+    return os.path.join(DATA_DIR, "loadcell_cal.json")
 
 
 # Typed answers are read on a separate thread and put on the same queue as tips,
@@ -160,9 +220,16 @@ def stdin_reader(q):
 #   7. _rate_summary()  - after all runs at a rate: mean mL per tip at that rate
 #   8. results()        - table of mL/tip and % error for every rate; operator picks the
 #                         sizing rate and the rim radius is saved with all the data
+# With the load cell, steps 5-6 are replaced: every tip records the scale's weight just before it,
+# _weigh_run() takes a run's grams from those weights at the tip after the run, and
+# _finish_rate_if_ready() moves to the next rate once every run at this one is weighed and decided.
 class Session:
     def __init__(self, args):
         self.args = args
+        self.loadcell = not getattr(args, "manual", False)
+        self.scale = None
+        self.pre_w = []                # load cell: weight just before each tip (g), same index as tips
+        self.pending = []              # load cell: runs that ended and are waiting for their weight
         self.clock = Clock(args.speed if args.sim else 1.0)
         self.q = queue.Queue()
         self.prompts = collections.deque()
@@ -255,11 +322,12 @@ class Session:
                      f"  sudo mkdir -p {DATA_DIR} && sudo chown pi:pi {DATA_DIR}")
         # tips.csv logs every tip; runs.csv gets one row per weighed run
         self.tips_csv = self._csv("tips.csv", ["tip", "time", "t_s", "interval_s", "tips_per_min",
-                                               "phase", "rate_mm_h", "run"])
+                                               "phase", "rate_mm_h", "run", "scale_g"])
         self.runs_csv = self._csv("runs.csv", ["rate_mm_h", "target_tpm", "run", "bucket",
                                                "start_tip", "end_tip", "duration_s", "tips_per_min",
                                                "start_g", "end_g", "net_g", "g_per_tip",
-                                               "ml_per_tip", "side_ratio", "off_target_pct", "irregular", "kept"])
+                                               "ml_per_tip", "side_ratio", "off_target_pct", "irregular", "kept",
+                                               "note"])
         self.say(f"\nSaving to {self.dir}")
         self.say("\nRate plan:")
         for r in rates:
@@ -267,6 +335,12 @@ class Session:
             self.say(f"  {r:>6g} mm/h = {t:5.2f} tips/min, {TIPS_PER_RUN} tips per run = "
                      f"{TIPS_PER_RUN / t:5.1f} min, {RUNS_PER_RATE} runs")
         self.say()
+        if self.loadcell:
+            # No buckets to weigh: the container stays on the scale and the first rate starts now
+            self.say(f"Scale reads {self.scale.grams_now():.0f} g (container plus anything in it). "
+                     "All water collects in the container on the scale; no bucket swaps.")
+            self.start_rate()
+            return
         for b in ("A", "B"):
             self.ask(f"Weigh bucket {b} DRY and enter its weight in grams:",
                      self._tare_handler(b), auto=lambda: 550, scale=lambda: 550)
@@ -319,17 +393,48 @@ class Session:
         self.run_no = 0
         self.source.set_target(self.target)
         self.say(f"\n========== RATE {self.rate_i + 1} of {len(self.rates)}: {self.rate:g} mm/h ==========")
-        self.say(f"Adjust the drip bolt to {self.target:.2f} tips/min "
-                 f"({self.target * (1 - STEADY_TOL):.2f} to {self.target * (1 + STEADY_TOL):.2f}). "
-                 "Water goes to the WASTE container.")
-        self.ask("When the script says STEADY and bucket A is ready, press Enter "
-                 "(the next tip starts run 1).", self._arm_handler)
+        band = (f"Adjust the drip bolt to {self.target:.2f} tips/min "
+                f"({self.target * (1 - STEADY_TOL):.2f} to {self.target * (1 + STEADY_TOL):.2f}).")
+        if not self.loadcell:
+            self.say(band + " Water goes to the WASTE container.")
+            self.ask("When the script says STEADY and bucket A is ready, press Enter "
+                     "(the next tip starts run 1).", self._arm_handler)
+            return
+        self.say(band)
+        # Empty only between rates, never during one, and only when this rate could pass the limit
+        if self.scale.grams_now() + self._rate_need_g() > LOADCELL_MAX_G:
+            self.ask(self._empty_text(), self._emptied_handler, auto="")
+        self.ask("When the script says STEADY, press Enter (the next tip starts run 1).", self._arm_handler)
+
+    # Most water one rate can add: every planned run plus two replacements, at the top of GPT_RANGE
+    def _rate_need_g(self):
+        return (RUNS_PER_RATE + 2) * TIPS_PER_RUN * GPT_RANGE[1]
+
+    def _empty_text(self):
+        return (f"The scale holds {self.scale.grams_now():.0f} g and this rate could add {self._rate_need_g():.0f} g, "
+                f"over the {LOADCELL_MAX_G} g load cell limit. Empty the container, put it back on the scale, "
+                "and press Enter.")
+
+    def _emptied_handler(self, line):
+        if hasattr(self.scale, "empty"):
+            self.scale.empty()         # simulation
+        load = self.scale.grams_now()
+        if line.lower() != "go" and load + self._rate_need_g() > LOADCELL_MAX_G:
+            self.say(f"   Scale still reads {load:.0f} g. Empty the container fully and press Enter, "
+                     "or type 'go' to continue anyway.")
+            return False
+        self.say(f"   Scale reads {load:.0f} g.")
+        return True
 
     # Step 3: once STEADY, Enter arms the run; the next tip starts run 1 ('force' skips the steady check)
     def _arm_handler(self, line):
         if line.lower() != "force" and not self.steady:
             self.say("   Not steady yet. Wait for STEADY, or type 'force' to start anyway.")
             return False
+        if self.loadcell:
+            self.phase = "armed"
+            self.say("   Armed. The next tip starts run 1.")
+            return True
         for b in "AB":
             if not self.tare_ok.get(b):
                 self.say(f"   Bucket {b} needs its empty weight first.")
@@ -346,16 +451,23 @@ class Session:
             self.say(f"   (ignored a second pulse {1000 * (t - self.tips[-1]):.0f} ms after a tip)")
             return
         i = len(self.tips)
+        # Load cell: the weight just before this tip holds the water of every earlier tip
+        w = self.scale.grams_before(t, PRE_WINDOW_S, PRE_GUARD_S) if self.loadcell else None
+        self.pre_w.append(w)
         self.tips.append(t)
         interval = t - self.tips[-2] if i else None
         rate = 60.0 / interval if interval else None
         row = {"tip": i, "time": self.clock.stamp(t), "t_s": round(t, 3),
                "interval_s": round(interval, 3) if interval else "",
                "tips_per_min": round(rate, 3) if rate else "", "phase": self.phase,
-               "rate_mm_h": self.rate if self.phase != "setup" else "", "run": self.run_no or ""}
+               "rate_mm_h": self.rate if self.phase != "setup" else "", "run": self.run_no or "",
+               "scale_g": round(w, 2) if w is not None else ""}
         self._write(self.tips_csv, row)
+        # A run that ended at the previous tip can be weighed now
+        for run in [r for r in self.pending if r["end_tip"] < i]:
+            self._weigh_run(run, self.pre_w[run["start_tip"] + 1:i + 1])
 
-        if self.phase in ("setup", "done"):
+        if self.phase in ("setup", "done", "finishing"):
             return
         # Still setting the drip (or armed): check steadiness; an armed tip starts run 1
         if self.phase in ("setting", "armed"):
@@ -416,8 +528,12 @@ class Session:
         self.phase = "running"
         self.run_no += 1
         self.run_start = i
-        self.bucket = bucket
         self.drift_warned = False
+        if self.loadcell:
+            self.bucket = None
+            self.say(f"   Run {self.run_no} started at {self.rate:g} mm/h")
+            return
+        self.bucket = bucket
         self.tare_ok[bucket] = False
         self.banner(f"SWITCH TO BUCKET {bucket} NOW  (run {self.run_no} at {self.rate:g} mm/h)")
 
@@ -436,7 +552,7 @@ class Session:
         if irregular:
             side_ratio = None
             self.say(f"   NOTE: {len(irregular)} tip interval(s) in this run were far from the others "
-                     "(possible missed or extra tip). You will be asked about it when you weigh this run.")
+                     "(possible missed or extra tip). You will be asked about it when this run is weighed.")
         else:
             even = [v for k, v in ivs if k % 2 == 0]
             odd = [v for k, v in ivs if k % 2 == 1]
@@ -451,6 +567,15 @@ class Session:
                "kept": None, "rate_index": self.rate_i}
         self.runs.append(run)
         valid_so_far = self.valid_runs(self.rate_i)
+        if self.loadcell:
+            # Weighed at the next tip; the next run starts right away, or the rate waits for its last weight
+            self.pending.append(run)
+            if valid_so_far < RUNS_PER_RATE:
+                self._begin_run(i, None)
+            else:
+                self.phase = "finishing"
+                self.say("   That's the last run at this rate; it is weighed at the next tip.")
+            return
         if valid_so_far < RUNS_PER_RATE:
             nxt = "B" if b == "A" else "A"
             if not self.tare_ok.get(nxt):
@@ -511,9 +636,6 @@ class Session:
                        g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / DENSITY, 4))
             self.say(f"   Run {run['run']}: {net:g} g = {gpt:.3f} g/tip at "
                      f"{run['tips_per_min']:.2f} tips/min")
-            others = [r["g_per_tip"] for r in self.runs
-                      if r["rate_index"] == run["rate_index"] and r is not run
-                      and r.get("g_per_tip") and r["kept"] is not False]
             # Starting weight for the bucket's next run comes after any keep question
             full_note = ""
             if v + TIPS_PER_RUN * GPT_RANGE[1] > SCALE_MAX_G:
@@ -521,56 +643,72 @@ class Session:
             self.ask_next(f"Empty bucket {b} and enter its empty weight, or press Enter to keep "
                           f"filling it (its next run starts from {v:g} g):{full_note}",
                           self._tare_after(run), auto=self._auto_start(run), scale=lambda: f"{v:g}")
-            # Reasons to flag the run. Discard is the default for an irregular tip (g/tip about 4% off)
-            # or a drip more than DISCARD_OFF_PCT off target; otherwise keep is the default, since the
-            # actual rate is recorded and a few % off target barely changes g/tip.
-            reasons = []
-            discard_advised = False
-            if run["irregular"]:
-                reasons.append(f"{run['irregular']} irregular tip interval(s); a missed or extra tip "
-                               "makes g/tip about 4% wrong")
-                discard_advised = True
-            if abs(run["off_target_pct"]) > STEADY_TOL * 100:
-                reasons.append(f"drip averaged {run['off_target_pct']:+.1f}% from the target rate")
-                if abs(run["off_target_pct"]) > DISCARD_OFF_PCT:
-                    discard_advised = True
-            # Far from the other runs at this rate: worth a look, keeping is the default
-            if len(others) >= 2:
-                med = statistics.median(others)
-                dev = (gpt / med - 1) * 100
-                if abs(dev) > FLAG_PCT:
-                    reasons.append(f"{dev:+.1f}% from the other runs")
+            reasons, discard_advised = self._flag_reasons(run, gpt)
             if reasons:
-                default = "n" if discard_advised else "y"
-                choice = "[y/N] (Enter = discard)" if default == "n" else "[Y/n] (Enter = keep)"
-                self.ask_next(f"FLAG: run {run['run']}: " + "; ".join(reasons) + f". Keep it? {choice}",
-                              self._keep_handler(run, default), auto=default)
+                self._ask_keep(run, reasons, discard_advised, first=True)
                 return True
             run["kept"] = True
             return True
         return h
 
+    # Reasons to flag a run. Discard is the default for an irregular tip (g/tip about 4% off)
+    # or a drip more than DISCARD_OFF_PCT off target; otherwise keep is the default, since the
+    # actual rate is recorded and a few % off target barely changes g/tip.
+    def _flag_reasons(self, run, gpt):
+        reasons = []
+        discard_advised = False
+        if run["irregular"]:
+            reasons.append(f"{run['irregular']} irregular tip interval(s); a missed or extra tip "
+                           "makes g/tip about 4% wrong")
+            discard_advised = True
+        if abs(run["off_target_pct"]) > STEADY_TOL * 100:
+            reasons.append(f"drip averaged {run['off_target_pct']:+.1f}% from the target rate")
+            if abs(run["off_target_pct"]) > DISCARD_OFF_PCT:
+                discard_advised = True
+        # Far from the other runs at this rate: worth a look, keeping is the default
+        others = [r["g_per_tip"] for r in self.runs
+                  if r["rate_index"] == run["rate_index"] and r is not run
+                  and r.get("g_per_tip") and r["kept"] is not False]
+        if len(others) >= 2:
+            med = statistics.median(others)
+            dev = (gpt / med - 1) * 100
+            if abs(dev) > FLAG_PCT:
+                reasons.append(f"{dev:+.1f}% from the other runs")
+        return reasons, discard_advised
+
+    # first=True: from inside a prompt handler (asked next); otherwise queued after any open prompts
+    def _ask_keep(self, run, reasons, discard_advised, first=False, then=None):
+        default = "n" if discard_advised else "y"
+        choice = "[y/N] (Enter = discard)" if default == "n" else "[Y/n] (Enter = keep)"
+        (self.ask_next if first else self.ask)(
+            f"FLAG: run {run['run']}: " + "; ".join(reasons) + f". Keep it? {choice}",
+            self._keep_handler(run, default, then), auto=default)
+
     # A flagged run can be kept or discarded. Enter takes the recommended answer (default).
-    def _keep_handler(self, run, default="y"):
+    # then(run) is called once it is decided (load cell: save the run and maybe finish the rate).
+    def _keep_handler(self, run, default="y", then=None):
         def h(line):
             if line == "":
                 line = default
             if line.lower() in ("y", "yes"):
                 run["kept"] = True
-                return True
-            if line.lower() in ("n", "no"):
+            elif line.lower() in ("n", "no"):
                 self._discard(run)
-                return True
-            self.say("   Type y or n.")
-            return False
+            else:
+                self.say("   Type y or n.")
+                return False
+            if then:
+                then(run)
+            return True
         return h
 
     # Discarding a run while its rate is still running adds one replacement run automatically
-    # (the rate ends at RUNS_PER_RATE valid runs); after the rate has finished it can't be replaced
+    # (the rate ends at RUNS_PER_RATE valid runs); after the rate has finished it can't be replaced.
+    # With the load cell a rate doesn't finish until all its runs are decided, so this always applies.
     def _discard(self, run):
         run["kept"] = False
         ri = run["rate_index"]
-        if ri == self.rate_i and self.phase == "running" and not self.rate_done.get(ri):
+        if ri == self.rate_i and self.phase in ("running", "finishing", "armed") and not self.rate_done.get(ri):
             self.say(f"   Run discarded; a replacement run will be added ({self.runs_planned(ri)} runs at this rate).")
         else:
             self.say("   Run discarded.")
@@ -621,6 +759,85 @@ class Session:
                     self.results()
             return True
         return h
+
+    # ---------------- load cell weighing
+    # series = the weights before each tip from the run's first tip through the tip after its last one
+    # (or the current reading when the drip stopped). Its first and last values bracket exactly the
+    # run's water, and any drop in between means the container was bumped or lifted.
+    def _weigh_run(self, run, series):
+        self.pending.remove(run)
+        if any(w is None for w in (series[0], series[-1])):
+            run["note"] = "no scale reading"
+            self.say(f"   Run {run['run']}: no reading from the load cell; run discarded.")
+            self._discard(run)
+            self._run_done(run)
+            return
+        start, end = series[0], series[-1]
+        net = end - start
+        gpt = net / TIPS_PER_RUN
+        run.update(start_g=round(start, 2), end_g=round(end, 2), net_g=round(net, 2),
+                   g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / DENSITY, 4))
+        self.say(f"   Run {run['run']} weighed: {net:.1f} g = {gpt:.3f} g/tip at {run['tips_per_min']:.2f} tips/min")
+        # Out of range is never kept: with no typo possible, the scale or the setup was disturbed
+        if not GPT_RANGE[0] <= gpt <= GPT_RANGE[1]:
+            run["note"] = f"{gpt:.2f} g/tip outside {GPT_RANGE[0]}-{GPT_RANGE[1]}"
+            self.say(f"   That is outside {GPT_RANGE[0]} to {GPT_RANGE[1]} g/tip, so the run is discarded. "
+                     "Check that all the water reaches the container and nothing touches the scale.")
+            self._discard(run)
+            self._run_done(run)
+            return
+        reasons, discard_advised = self._flag_reasons(run, gpt)
+        known = [w for w in series if w is not None]
+        drop = max((a - b for a, b in zip(known, known[1:])), default=0.0)
+        if drop > DISTURB_G:
+            reasons.append(f"the scale reading dropped {drop:.0f} g during the run (container bumped or lifted?)")
+            discard_advised = True
+        if max(known) > LOADCELL_MAX_G:
+            reasons.append(f"the scale passed its {LOADCELL_MAX_G} g limit")
+            discard_advised = True
+        if reasons:
+            run["note"] = "; ".join(reasons)
+            self._ask_keep(run, reasons, discard_advised, then=self._run_done)
+            return
+        run["kept"] = True
+        self._run_done(run)
+
+    # A weighed and decided run is saved; the rate may now be finished
+    def _run_done(self, run):
+        run["done"] = True
+        self._write(self.runs_csv, {k: run.get(k) for k in self.runs_csv[1].fieldnames})
+        self._finish_rate_if_ready(run["rate_index"])
+
+    # Load cell: after the rate's last run, wait until every run at the rate is weighed and decided.
+    # A discard then leaves too few valid runs, so a replacement starts at the next tip; otherwise the
+    # rate's summary prints and the next rate (or the results) follows.
+    def _finish_rate_if_ready(self, ri):
+        if self.phase != "finishing" or ri != self.rate_i:
+            return
+        if any(r["kept"] is None for r in self.runs if r["rate_index"] == ri):
+            return
+        if self.valid_runs(ri) < RUNS_PER_RATE:
+            self.phase = "armed"
+            self.say("   The replacement run starts at the next tip.")
+            return
+        self.rate_done[ri] = True
+        self._rate_summary(ri)
+        if ri + 1 < len(self.rates):
+            self.rate_i += 1
+            self.start_rate()
+        else:
+            self.phase = "done"
+            self.results()
+
+    # Load cell, called while waiting for input: if the drip stopped after a run's last tip, there is
+    # no next tip to weigh it at, so weigh it from the current reading once the water has drained
+    def poll(self):
+        now = self.clock.now()
+        for run in list(self.pending):
+            wait = max(NO_TIP_WAIT_S, 2 * 60.0 / run["tips_per_min"])
+            if now - self.tips[run["end_tip"]] > wait:
+                self.say("   No tip since the run ended; weighing it from the current reading.")
+                self._weigh_run(run, self.pre_w[run["start_tip"] + 1:] + [self.scale.grams_now()])
 
     # ---------------- results
     def kept_runs(self, ri):
@@ -734,15 +951,27 @@ class Session:
         a = self.args
         if a.sim:
             self.source = SimGauge(self.q, self.clock, a.speed)
-            self.say(f"SIMULATION at {a.speed:g}x speed" + (" (automatic)" if a.auto else ""))
+            if self.loadcell:
+                self.scale = SimScale(self.source, self.clock)
+            self.say(f"SIMULATION at {a.speed:g}x speed" + (" (automatic)" if a.auto else "")
+                     + (" with a simulated load cell" if self.loadcell else ""))
         else:
+            if self.loadcell:
+                self.scale = open_scale(self.clock.now)
+                import nau7802
+                nau7802.use_or_calibrate(self.scale, cal_path())
             self.source = GpioTips(self.q, self.clock)
             self.say(f"Reading tips on GPIO{TIP_GPIO}")
         self.setup()
         if not a.auto:
             threading.Thread(target=stdin_reader, args=(self.q,), daemon=True).start()
         while not self.finished:
-            kind, val = self.q.get()
+            try:
+                kind, val = self.q.get(timeout=0.5)
+            except queue.Empty:
+                if self.loadcell:
+                    self.poll()
+                continue
             if kind == "tip":
                 self.on_tip(val)
             elif kind == "line":
@@ -752,10 +981,37 @@ class Session:
                 break
 
 
+# The Qwiic Scale on the I2C bus; nau7802.py sits next to this script
+def open_scale(now):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import nau7802
+        return nau7802.LoadCell(now=now)
+    except (ImportError, OSError) as e:
+        sys.exit(f"Could not start the Qwiic Scale (NAU7802 at I2C 0x2A): {e}\n"
+                 "Check the Qwiic cable and that I2C is enabled, or run with --manual to weigh buckets by hand.")
+
+
+# --calibrate-scale: calibrate, then print the weight every second to check it (Ctrl+C stops)
+def calibrate_scale_only():
+    scale = open_scale(time.monotonic)
+    import nau7802
+    nau7802.calibrate(scale, cal_path())
+    print("\nLive reading, Ctrl+C to stop:")
+    try:
+        while True:
+            print(f"   {scale.grams_now():8.1f} g", flush=True)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--gauge-id")
     ap.add_argument("--rates", type=float, nargs="+", help="mm/h, e.g. --rates 12 30 60 120 200")
+    ap.add_argument("--manual", action="store_true", help="swap and weigh buckets A and B by hand instead of the load cell")
+    ap.add_argument("--calibrate-scale", action="store_true", help="only calibrate the load cell, then show live readings")
     ap.add_argument("--sim", action="store_true", help="simulated gauge, no hardware")
     ap.add_argument("--speed", type=float, default=1.0, help="simulation speed-up")
     ap.add_argument("--auto", action="store_true", help="with --sim: answer prompts automatically")
@@ -764,6 +1020,9 @@ def main():
         ap.error("--auto only works with --sim")
     if a.rates and any(r <= 0 for r in a.rates):
         ap.error("--rates must all be positive")
+    if a.calibrate_scale:
+        calibrate_scale_only()
+        return
     s = Session(a)
     try:
         s.run()
