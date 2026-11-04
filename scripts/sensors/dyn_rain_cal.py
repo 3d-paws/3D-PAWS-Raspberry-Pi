@@ -337,7 +337,8 @@ class Session:
         self.runs_csv = self._csv("runs.csv", ["rate_mm_h", "target_tpm", "run", "bucket",
                                                "start_tip", "end_tip", "duration_s", "tips_per_min",
                                                "start_g", "end_g", "net_g", "g_per_tip",
-                                               "ml_per_tip", "side_ratio", "off_target_pct", "irregular", "kept",
+                                               "ml_per_tip", "side_ratio", "side_heavy_g", "side_light_g",
+                                               "off_target_pct", "irregular", "kept",
                                                "note"])
         self.say(f"\nSaving to {self.dir}")
         self.say("\nRate plan:")
@@ -803,6 +804,7 @@ class Session:
         gpt = net / TIPS_PER_RUN
         run.update(start_g=round(start, 2), end_g=round(end, 2), net_g=round(net, 2),
                    g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / DENSITY, 4))
+        self._side_weights(run, series)
         self.say(f"   Run {run['run']} weighed: {net:.1f} g = {gpt:.3f} g/tip at {run['tips_per_min']:.2f} tips/min")
         # Out of range is never kept: with no typo possible, the scale or the setup was disturbed
         if not GPT_RANGE[0] <= gpt <= GPT_RANGE[1]:
@@ -827,6 +829,16 @@ class Session:
             return
         run["kept"] = True
         self._run_done(run)
+
+    # Water per bucket side: each step between pre-tip weights is one tip's water, and the tips alternate
+    # sides. Sides are named by size (heavier/lighter), since a missed tip would swap which is which;
+    # a run with an irregular interval or a missing reading is left out.
+    def _side_weights(self, run, series):
+        if run["irregular"] or any(w is None for w in series):
+            return
+        steps = [b - a for a, b in zip(series, series[1:])]
+        first, second = statistics.mean(steps[0::2]), statistics.mean(steps[1::2])
+        run.update(side_heavy_g=round(max(first, second), 3), side_light_g=round(min(first, second), 3))
 
     # A weighed and decided run is saved; the rate may now be finished
     def _run_done(self, run):
@@ -878,11 +890,16 @@ class Session:
         used = vals[1:-1] if len(vals) >= 5 else vals
         sides = [abs(r["side_ratio"] - 1) for r in runs if r["side_ratio"] is not None]
         mean = statistics.mean(used)
+        weighed = [r for r in runs if r.get("side_heavy_g") is not None]
+        heavy = statistics.mean(r["side_heavy_g"] for r in weighed) if weighed else None
+        light = statistics.mean(r["side_light_g"] for r in weighed) if weighed else None
         return {"rate_mm_h": self.rates[ri], "n_runs": len(vals), "n_used": len(used),
                 "ml_per_tip": mean,
                 "spread_pct": (max(used) - min(used)) / mean * 100 if len(used) > 1 else 0.0,
                 "tips_per_min": statistics.mean(r["tips_per_min"] for r in runs),
-                "side_imbalance_pct": statistics.mean(sides) * 100 if sides else None}
+                "side_imbalance_pct": statistics.mean(sides) * 100 if sides else None,
+                "side_heavy_g": heavy, "side_light_g": light,
+                "side_mass_diff_pct": (heavy / light - 1) * 100 if weighed and light > 0 else None}
 
     def _rate_summary(self, ri):
         s = self.rate_stats(ri)
@@ -895,6 +912,9 @@ class Session:
                  f"(mean of {s['n_used']} of {s['n_runs']} runs, spread {s['spread_pct']:.2f}%), "
                  f"actual {s['tips_per_min']:.2f} tips/min, side imbalance "
                  f"{side_text(s)}{warn}")
+        if s["side_heavy_g"] is not None:
+            self.say(f"   Bucket sides: {s['side_heavy_g']:.2f} g and {s['side_light_g']:.2f} g per tip "
+                     f"(the heavier holds {s['side_mass_diff_pct']:.1f}% more)")
 
     # Collector rim radius that makes one tip of this volume equal 0.2 mm of rain
     @staticmethod
@@ -933,6 +953,16 @@ class Session:
             lines.append(row)
         lines.append(f"{'radius mm':>10}" + "".join(f" {self.radius_mm(s['ml_per_tip']):11.2f} "
                                                    for s in stats))
+        # Load cell only: how much water each side of the bucket holds
+        if any(s["side_heavy_g"] is not None for s in stats):
+            lines += ["", "Bucket sides (load cell), water per tip:",
+                      "Rate (mm/h)  heavier side  lighter side  heavier holds"]
+            for s in stats:
+                if s["side_heavy_g"] is None:
+                    lines.append(f"{s['rate_mm_h']:>10g}  no clean runs to split by side")
+                else:
+                    lines.append(f"{s['rate_mm_h']:>10g}  {s['side_heavy_g']:10.2f} g  {s['side_light_g']:10.2f} g"
+                                 f"  {s['side_mass_diff_pct']:+11.1f}%")
         report = "\n".join(lines)
         self.say("\n" + report + "\n")
         self.report, self.stats = report, stats

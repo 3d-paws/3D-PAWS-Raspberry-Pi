@@ -115,6 +115,8 @@ class FakeScale:
 
     def _load(self):
         tips = len(self.op.s.tips) + sum(1 for m in self.op.missed if m < self.op.fed)
+        if self.op.side_g:
+            return self.container + sum(self.op.side_g[k % 2] for k in range(tips)) - self.removed
         return self.container + self.op.gpt * tips - self.removed
 
     def grams_before(self, t, window, guard):
@@ -134,7 +136,7 @@ class LoadCellOperator(Operator):
     """Runs a load cell session: no bucket prompts, the scale weighs every run."""
 
     def __init__(self, rates=(60,), gpt=6.0, missed=(), flag_answer="", container=400.0, bumps=None, stop_at_last_run=False,
-                 sides=(1.0, 1.0), bounces=()):
+                 sides=(1.0, 1.0), bounces=(), side_g=None):
         self.tmp = tempfile.TemporaryDirectory()
         drc.DATA_DIR = self.tmp.name
         args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates), manual=False)
@@ -145,6 +147,7 @@ class LoadCellOperator(Operator):
         self.stop_at_last_run = stop_at_last_run   # the drip is turned off right after the last run
         self.sides = sides             # each bucket side's fill time as a multiple of the average gap
         self.bounces = set(bounces)    # tip numbers followed 2.4 s later by a false pulse
+        self.side_g = side_g           # grams each bucket side dumps, alternating; None = gpt for every tip
         self.fed = 0
         self.s.scale = FakeScale(self, container)
         self.out = io.StringIO()
@@ -365,6 +368,24 @@ class LoadCellTests(Test):
         self.assertNotIn("drifted", op.out.getvalue())
         self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
         self.assertEqual(len(op.runs_at(0)), drc.RUNS_PER_RATE)
+
+    def test_bucket_sides_weighed_and_reported(self):
+        self.addCleanup(setattr, drc, "GPT_RANGE", drc.GPT_RANGE)
+        drc.GPT_RANGE = (4.0, 6.5)     # --gpt-range 4 6.5, as for the real gauge
+        op = self.lc_operator(rates=(60,), gpt=4.7, sides=(1.2, 0.8), side_g=(5.5, 3.9)).run()
+        st = op.s.stats[0]
+        self.assertAlmostEqual(st["side_heavy_g"], 5.5, places=6)
+        self.assertAlmostEqual(st["side_light_g"], 3.9, places=6)
+        self.assertAlmostEqual(st["side_mass_diff_pct"], (5.5 / 3.9 - 1) * 100, places=6)
+        with open(os.path.join(op.s.dir, "summary.txt")) as f:
+            self.assertIn("heavier side", f.read())
+        with open(os.path.join(op.s.dir, "result.json")) as f:
+            self.assertAlmostEqual(json.load(f)["rates"][0]["side_heavy_g"], 5.5, places=6)
+
+    def test_manual_mode_has_no_bucket_side_table(self):
+        op = self.operator(rates=(60,)).run()
+        self.assertIsNone(op.s.stats[0]["side_heavy_g"])
+        self.assertNotIn("heavier side", op.out.getvalue())
 
     def test_bucket_bounce_during_a_run_is_ignored(self):
         op = self.lc_operator(rates=(60,), bounces=(40, 80)).run()
