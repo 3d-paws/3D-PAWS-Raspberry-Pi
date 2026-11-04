@@ -128,10 +128,16 @@ class Clock:
 
 # ----------------------------------------------------------------- tip sources
 class GpioTips:
+    """A tip on every falling edge, the same way rain.py counts. gpiozero was used before, but it reads
+    the pin after the edge, so a fast tip whose reed switch had already reopened was lost (on a real
+    gauge about every other tip went uncounted at 60 mm/h)."""
+
     def __init__(self, q, clock):
-        from gpiozero import Button
-        self.btn = Button(TIP_GPIO, pull_up=True, bounce_time=BOUNCE_S)
-        self.btn.when_pressed = lambda: q.put(("tip", clock.now()))
+        import RPi.GPIO as GPIO
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(TIP_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(TIP_GPIO, GPIO.FALLING, callback=lambda channel: q.put(("tip", clock.now())),
+                              bouncetime=int(BOUNCE_S * 1000))
 
     def set_target(self, tpm):
         pass
