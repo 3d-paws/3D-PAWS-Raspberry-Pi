@@ -363,6 +363,24 @@ class LoadCellTests(Test):
         self.assertIs(run["kept"], False)
         self.assertFalse(any(p["text"].startswith("FLAG") for p in s.prompts))
 
+    def test_gpt_range_option_keeps_a_small_bucket(self):
+        # A 4.75 g/tip gauge: every run is out of range at the default 5-7.5, kept with --gpt-range 4 6.5
+        default = drc.GPT_RANGE
+        self.addCleanup(setattr, drc, "GPT_RANGE", default)
+        drc.GPT_RANGE = (4.0, 6.5)
+        op = self.lc_operator(rates=(60,), gpt=4.75).run()
+        self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+        self.assertEqual(len(op.runs_at(0)), drc.RUNS_PER_RATE)
+
+    def test_gpt_range_must_be_min_then_max(self):
+        argv = sys.argv
+        sys.argv = ["dyn_rain_cal.py", "--sim", "--gpt-range", "6.5", "4"]
+        try:
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                drc.main()
+        finally:
+            sys.argv = argv
+
     def test_container_emptied_between_rates_when_near_the_limit(self):
         op = self.lc_operator(rates=(30, 60), container=3500.0).run()
         self.assertIn("Empty the container", op.out.getvalue())

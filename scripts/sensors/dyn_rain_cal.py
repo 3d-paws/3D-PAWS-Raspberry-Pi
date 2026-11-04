@@ -28,6 +28,7 @@ Usage (from /home/pi/3d_paws/scripts/sensors/):
   python3 dyn_rain_cal.py --sim               simulated gauge in real time (training)
   python3 dyn_rain_cal.py --sim --speed 60    simulated, 60x faster
   python3 dyn_rain_cal.py --sim --speed 300 --auto   fully automatic demo run (add --manual for the manual procedure)
+  python3 dyn_rain_cal.py --gpt-range 4 6.5  accept 4-6.5 g/tip instead of 5-7.5, for a gauge with a smaller bucket
 
 Stop the 3D-PAWS station software first if it is running on this Pi,
 so it is not reading the same GPIO pin (turn off Tipping Bucket in the controller).
@@ -39,7 +40,7 @@ Load cell session:
                      scale reading dropping during the run (container bumped or lifted)
   Enter            at "Empty the container": after emptying it and putting it back. Asked only
                    between rates, when the next rate could pass the 5 kg limit.
-  A run's weight is read at the tip after it ends. Runs outside 5-7.5 g/tip are discarded
+  A run's weight is read at the tip after it ends. Runs outside 5-7.5 g/tip (or --gpt-range) are discarded
   automatically. Each discarded run adds one replacement run, including the last run of a rate.
 
 Manual session:
@@ -53,7 +54,7 @@ Manual session:
   y / n / Enter    at a FLAG prompt: keep / discard / take the recommended answer
                    - discard recommended: a missed or extra tip, or the drip >10% off target
                    - keep recommended: drip 5-10% off target, or >2% from the other runs
-  Weights outside 5-7.5 g/tip are never stored. Each discarded run adds one replacement run
+  Weights outside 5-7.5 g/tip (or --gpt-range) are never stored. Each discarded run adds one replacement run
   while its rate is still running. Ctrl+C stops; everything recorded so far is kept.
 
 Results: summary.txt and result.json (rim radius and % error at each rate), runs.csv (one row
@@ -86,7 +87,8 @@ MM_PER_TIP = 0.2
 STEADY_TIPS = 5           # last N tips must all be within tolerance
 STEADY_TOL = 0.05         # +/- 5 %
 FLAG_PCT = 2.0            # flag a run this far from the others
-GPT_RANGE = (5.0, 7.5)    # acceptable grams per tip; outside this, re-enter or discard (tip volume rises at high rates)
+GPT_RANGE = (5.0, 7.5)    # acceptable grams per tip; outside this, re-enter or discard (tip volume rises at high rates).
+                          # Change it for one gauge with --gpt-range MIN MAX
 IDEAL_GPT = (5.5, 6.5)    # target grams per tip; rates outside it are marked in the final summary
 DISCARD_OFF_PCT = 10.0    # a run averaging more than this % off the target rate defaults to discard
 SCALE_MAX_G = 6000        # manual: scale capacity; warn before a bucket that keeps filling would exceed it
@@ -945,7 +947,7 @@ class Session:
                        "density_g_ml": DENSITY, "mm_per_tip": MM_PER_TIP,
                        "rates": self.stats, "sizing_rate_mm_h": ref["rate_mm_h"],
                        "rim_radius_mm": round(r, 3), "errors_pct": errors,
-                       "ignored_pulses": self.rejected}, f, indent=2)
+                       "gpt_range": list(GPT_RANGE), "ignored_pulses": self.rejected}, f, indent=2)
         self.say(f"Saved: {self.dir}/summary.txt, result.json, runs.csv, tips.csv")
         self.finished = True
         return True
@@ -1013,11 +1015,14 @@ def calibrate_scale_only():
 
 
 def main():
+    global GPT_RANGE
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--gauge-id")
     ap.add_argument("--rates", type=float, nargs="+", help="mm/h, e.g. --rates 12 30 60 120 200")
     ap.add_argument("--manual", action="store_true", help="swap and weigh buckets A and B by hand instead of the load cell")
     ap.add_argument("--calibrate-scale", action="store_true", help="only calibrate the load cell, then show live readings")
+    ap.add_argument("--gpt-range", type=float, nargs=2, metavar=("MIN", "MAX"),
+                    help=f"acceptable grams per tip (default {GPT_RANGE[0]:g} {GPT_RANGE[1]:g})")
     ap.add_argument("--sim", action="store_true", help="simulated gauge, no hardware")
     ap.add_argument("--speed", type=float, default=1.0, help="simulation speed-up")
     ap.add_argument("--auto", action="store_true", help="with --sim: answer prompts automatically")
@@ -1026,6 +1031,11 @@ def main():
         ap.error("--auto only works with --sim")
     if a.rates and any(r <= 0 for r in a.rates):
         ap.error("--rates must all be positive")
+    if a.gpt_range:
+        if not 0 < a.gpt_range[0] < a.gpt_range[1]:
+            ap.error("--gpt-range needs MIN then MAX, both positive, e.g. --gpt-range 4 6.5")
+        GPT_RANGE = tuple(a.gpt_range)
+        print(f"Accepting {GPT_RANGE[0]:g} to {GPT_RANGE[1]:g} g/tip")
     if a.calibrate_scale:
         calibrate_scale_only()
         return
