@@ -25,6 +25,8 @@ Usage (from /home/pi/3d_paws/scripts/sensors/):
   python3 dyn_rain_cal.py                     real gauge on the GPIO pin below, weighed by the load cell
   python3 dyn_rain_cal.py --manual            real gauge, buckets weighed by hand
   python3 dyn_rain_cal.py --calibrate-scale   only calibrate the load cell, then show live readings
+  python3 dyn_rain_cal.py --balance           balance the bucket sides with the load cell instead of pipettors
+                                              (the latest balance for the gauge ID is included in its calibration)
   python3 dyn_rain_cal.py --sim               simulated gauge in real time (training)
   python3 dyn_rain_cal.py --sim --speed 60    simulated, 60x faster
   python3 dyn_rain_cal.py --sim --speed 300 --auto   fully automatic demo run (add --manual for the manual procedure)
@@ -963,6 +965,18 @@ class Session:
                 else:
                     lines.append(f"{s['rate_mm_h']:>10g}  {s['side_heavy_g']:10.2f} g  {s['side_light_g']:10.2f} g"
                                  f"  {s['side_mass_diff_pct']:+11.1f}%")
+        # Bucket balance measured before this session (--balance) for the same gauge, if any
+        self.balance = latest_balance(self.gauge_id)
+        lines += ["", "Bucket balance (from --balance before this session):"]
+        if self.balance:
+            fin = self.balance["final"]
+            lines.append(f"  {fin['time'][:16].replace('T', ' ')}, round {fin['round']} of {len(self.balance['rounds'])}"
+                         f" ({self.balance['method']}): left {fin['left_avg_ml']:.2f} mL, right {fin['right_avg_ml']:.2f} mL,"
+                         f" differ by {fin['diff_pct']:.1f}% (limit {self.balance['limit_pct']:g}%)"
+                         + ("" if fin["balanced"] else "  NOT BALANCED")
+                         + (f", stops {fin['stops']}" if fin["stops"] else ""))
+        else:
+            lines.append(f"  none found for gauge {self.gauge_id}")
         report = "\n".join(lines)
         self.say("\n" + report + "\n")
         self.report, self.stats = report, stats
@@ -995,7 +1009,8 @@ class Session:
                        "density_g_ml": DENSITY, "mm_per_tip": MM_PER_TIP,
                        "rates": self.stats, "sizing_rate_mm_h": ref["rate_mm_h"],
                        "rim_radius_mm": round(r, 3), "errors_pct": errors,
-                       "gpt_range": list(GPT_RANGE), "ignored_pulses": self.rejected}, f, indent=2)
+                       "gpt_range": list(GPT_RANGE), "ignored_pulses": self.rejected,
+                       "balance": self.balance}, f, indent=2)
         self.say(f"Saved: {self.dir}/summary.txt, result.json, runs.csv, tips.csv")
         self.finished = True
         return True
@@ -1037,6 +1052,228 @@ class Session:
                 break
 
 
+# ----------------------------------------------------------------- bucket balancing
+# --balance: the load cell replaces the pipettors of the Rain Gauge Calibration Worksheet, Phase 2.
+# With a slow drip each tip's water lands on the scale before the next tip, so the step between the
+# weights before consecutive tips is one tip's water, and tips alternate sides. The operator says which
+# side is filling at the start; that names the sides. After 5 tips per side the worksheet table, the %
+# difference and the stop advice are printed; the operator changes a stop and measures again.
+# Results go to balance_<GaugeID>_<date_time>/ and the latest one for a gauge is included in that
+# gauge's calibration results (for the certificate's bucket balance line).
+BALANCE_TIPS_PER_SIDE = 5        # worksheet: five tips on each side
+BALANCE_LIMIT_PCT = 5.0          # worksheet: sides within 5 % of each other
+BALANCE_ML = (5.5, 6.5)          # worksheet: the bucket should tip between 5.5 and 6.5 mL
+BALANCE_TARGET_ML = 6.0          # worksheet: ideally around 6 mL
+BALANCE_LOCKOUT_S = 2.0          # a "tip" sooner than this is the bucket bouncing (real tips are ~60 s apart)
+BALANCE_FAST_S = 10.0            # warn if tips come faster than this: water may still be draining at the next tip
+BALANCE_STEP = (0.5, 1.6)        # a tip's water outside these multiples of the round's median = missed or extra tip
+
+
+def pct_difference(a, b):
+    """Worksheet step 6: |A - B| / ((A + B) / 2) x 100."""
+    return abs(a - b) / ((a + b) / 2) * 100
+
+
+def balance_advice(left, right):
+    """Worksheet step 7 for averages in mL. The side farther from 6 mL is the one that needs adjusting,
+    and the stop ON THE OTHER SIDE is changed (seesaw): smaller/lower makes this side hold more."""
+    within = pct_difference(left, right) <= BALANCE_LIMIT_PCT
+    in_range = all(BALANCE_ML[0] <= v <= BALANCE_ML[1] for v in (left, right))
+    if within and in_range:
+        return True, "Balanced: the sides are within 5% and both tip between 5.5 and 6.5 mL."
+    side, other, v = ("Left", "right", left) if abs(left - BALANCE_TARGET_ML) >= abs(right - BALANCE_TARGET_ML) \
+        else ("Right", "left", right)
+    if v < BALANCE_TARGET_ML:
+        how = (f"{side} tips with too little water ({v:.2f} mL). Lower the {other} stop "
+               f"(use a smaller stop on the {other}) so the {side.lower()} side holds more.")
+    else:
+        how = (f"{side} tips with too much water ({v:.2f} mL). Raise the {other} stop "
+               f"(use a larger stop on the {other}) so the {side.lower()} side tips sooner.")
+    why = [] if within else [f"the sides differ by {pct_difference(left, right):.1f}% (limit 5%)"]
+    if not in_range:
+        why.append("the bucket should tip between 5.5 and 6.5 mL")
+    return False, "Adjust: " + " and ".join(why) + ". " + how
+
+
+def latest_balance(gauge_id):
+    """The newest balance session saved for this gauge, or None."""
+    import glob
+    found = sorted(glob.glob(os.path.join(DATA_DIR, f"balance_{gauge_id}_*", "balance.json")))
+    if not found:
+        return None
+    try:
+        with open(found[-1]) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+class BalanceSession:
+    def __init__(self, args):
+        self.args = args
+        self.clock = Clock(args.speed if args.sim else 1.0)
+        self.q = queue.Queue()
+        self.scale = None
+        self.rounds = []
+        self.finished = False
+        self.state = None
+
+    def say(self, text=""):
+        print(text, flush=True)
+
+    def prompt(self, state, text):
+        self.state = state
+        self.say(f">> {text}")
+        if self.args.auto:
+            self.q.put(("line", {"side": "L", "stops": "", "next": "q" if self.rounds else ""}[state]))
+
+    def setup(self):
+        a = self.args
+        self.gauge_id = a.gauge_id or input("Gauge ID: ").strip() or "unnamed"
+        stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.dir = os.path.join(DATA_DIR, f"balance_{self.gauge_id}_{stamp}")
+        try:
+            os.makedirs(self.dir, exist_ok=True)
+        except PermissionError:
+            sys.exit(f"Cannot write to {DATA_DIR}. Fix it once with:\n"
+                     f"  sudo mkdir -p {DATA_DIR} && sudo chown pi:pi {DATA_DIR}")
+        self.say(f"\nSaving to {self.dir}")
+        self.say("\nBUCKET BALANCE (replaces the pipettor steps 5-7 of the calibration worksheet)\n"
+                 "Set a slow drip, about 1 tip per minute, with the container on the scale catching all the water.")
+        self.source.set_target(1.0)
+        self._new_round()
+
+    def _new_round(self):
+        self.times, self.weights, self.first = [], [], None
+        self.stops = ""
+        self.fast_warned = False
+        self.prompt("side", "Which side of the bucket is under the funnel filling right now? Type L or R:")
+
+    def on_tip(self, t):
+        if self.state != "measuring":
+            return
+        if self.times and t - self.times[-1] < BALANCE_LOCKOUT_S:
+            self.say(f"   (ignored a pulse {t - self.times[-1]:.2f} s after a tip: bucket bounce)")
+            return
+        if self.times and t - self.times[-1] < BALANCE_FAST_S and not self.fast_warned:
+            self.fast_warned = True
+            self.say("   NOTE: tips are coming fast. Slow the drip to about 1 tip per minute so each tip's "
+                     "water has drained onto the scale before the next one.")
+        self.times.append(t)
+        self.weights.append(self.scale.grams_before(t, PRE_WINDOW_S, PRE_GUARD_S))
+        k = len(self.weights) - 2          # the tip whose water is now known
+        if k < 0:
+            self.say("   First tip seen; measuring starts with it.")
+            return
+        g = self.weights[k + 1] - self.weights[k]
+        side = self._side(k)
+        n = sum(1 for j in range(k + 1) if self._side(j) == side)
+        self.say(f"   {side} tip {n}: {g:.2f} g = {g / DENSITY:.2f} mL")
+        if k + 1 >= 2 * BALANCE_TIPS_PER_SIDE:
+            self._end_round()
+
+    def _side(self, j):
+        other = "Right" if self.first == "Left" else "Left"
+        return self.first if j % 2 == 0 else other
+
+    def _end_round(self):
+        steps = [b - a for a, b in zip(self.weights, self.weights[1:])][:2 * BALANCE_TIPS_PER_SIDE]
+        med = statistics.median(steps)
+        odd = [j for j, g in enumerate(steps) if not BALANCE_STEP[0] * med <= g <= BALANCE_STEP[1] * med]
+        if odd:
+            self.say(f"   Tip {odd[0] + 1} held {steps[odd[0]]:.2f} g, far from the others: a missed or extra tip, "
+                     "so the sides can't be told apart. This round is repeated.")
+            self._new_round()
+            return
+        ml = {"Left": [], "Right": []}
+        for j, g in enumerate(steps):
+            ml[self._side(j)].append(round(g / DENSITY, 3))
+        left, right = statistics.mean(ml["Left"]), statistics.mean(ml["Right"])
+        balanced, advice = balance_advice(left, right)
+        rnd = {"round": len(self.rounds) + 1, "time": dt.datetime.now().isoformat(timespec="seconds"),
+               "left_ml": ml["Left"], "right_ml": ml["Right"], "left_avg_ml": round(left, 3),
+               "right_avg_ml": round(right, 3), "diff_pct": round(pct_difference(left, right), 2),
+               "mean_ml": round((left + right) / 2, 3), "balanced": balanced, "advice": advice,
+               "tips_per_min": round(60.0 * (len(self.times) - 1) / (self.times[-1] - self.times[0]), 2),
+               "stops": ""}
+        self.rounds.append(rnd)
+        self.say("\n" + self._table(rnd) + "\n\n" + advice + "\n")
+        self.prompt("stops", "Stop sizes used this round, e.g. 'L 3.0 R 3.5' (mm), or press Enter to skip:")
+
+    def _table(self, r):
+        lines = [f"Round {r['round']}" + (f"   stops: {r['stops']}" if r["stops"] else ""),
+                 "Trial   Left (mL)   Right (mL)"]
+        for i, (lv, rv) in enumerate(zip(r["left_ml"], r["right_ml"]), 1):
+            lines.append(f"{i:>5}   {lv:9.2f}   {rv:10.2f}")
+        lines.append(f"{'Avg':>5}   {r['left_avg_ml']:9.2f}   {r['right_avg_ml']:10.2f}")
+        lines.append(f"% difference = |A - B| / ((A + B) / 2) x 100 = {r['diff_pct']:.1f}%")
+        return "\n".join(lines)
+
+    def answer(self, line):
+        if self.state == "side":
+            first = {"l": "Left", "r": "Right"}.get(line.strip().lower()[:1])
+            if not first:
+                self.say("   Type L or R.")
+                return
+            self.first = first
+            self.state = "measuring"
+            self.say(f"   {first} side is filling. Measuring {BALANCE_TIPS_PER_SIDE} tips per side; don't touch the gauge or scale.")
+        elif self.state == "stops":
+            self.rounds[-1]["stops"] = line.strip()
+            self._save()
+            if self.rounds[-1]["balanced"]:
+                self.prompt("next", "Balanced. Press Enter to measure another round anyway, or type q to finish:")
+            else:
+                self.prompt("next", "Change the stop, then press Enter to measure again (or type q to finish):")
+        elif self.state == "next":
+            if line.strip().lower() == "q":
+                self._save()
+                self.say(f"Saved: {self.dir}/summary.txt, balance.json, balance.csv")
+                self.finished = True
+            else:
+                self._new_round()
+
+    def _save(self):
+        last = self.rounds[-1]
+        with open(os.path.join(self.dir, "balance.json"), "w") as f:
+            json.dump({"gauge_id": self.gauge_id, "method": f"load cell, {BALANCE_TIPS_PER_SIDE} tips per side",
+                       "limit_pct": BALANCE_LIMIT_PCT, "target_ml": list(BALANCE_ML),
+                       "density_g_ml": DENSITY, "final": last, "rounds": self.rounds}, f, indent=2)
+        with open(os.path.join(self.dir, "balance.csv"), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["round", "stops", "side", "trial", "ml"])
+            for r in self.rounds:
+                for side in ("Left", "Right"):
+                    for i, v in enumerate(r[side.lower() + "_ml"], 1):
+                        w.writerow([r["round"], r["stops"], side, i, v])
+        with open(os.path.join(self.dir, "summary.txt"), "w") as f:
+            f.write(f"Bucket balance, gauge {self.gauge_id}\n\n"
+                    + "\n\n".join(self._table(r) + "\n" + r["advice"] for r in self.rounds) + "\n")
+
+    def run(self):
+        a = self.args
+        if a.sim:
+            self.source = SimGauge(self.q, self.clock, a.speed)
+            self.scale = SimScale(self.source, self.clock)
+            self.say(f"SIMULATION at {a.speed:g}x speed" + (" (automatic)" if a.auto else ""))
+        else:
+            self.scale = open_scale(self.clock.now)
+            import nau7802
+            nau7802.use_or_calibrate(self.scale, cal_path())
+            self.source = GpioTips(self.q, self.clock)
+        self.setup()
+        if not a.auto:
+            threading.Thread(target=stdin_reader, args=(self.q,), daemon=True).start()
+        while not self.finished:
+            kind, val = self.q.get()
+            if kind == "tip":
+                self.on_tip(val)
+            elif kind == "line":
+                self.answer(val)
+            elif kind == "eof":
+                break
+
+
 # The Qwiic Scale on the I2C bus; nau7802.py sits next to this script
 def open_scale(now):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1069,6 +1306,7 @@ def main():
     ap.add_argument("--rates", type=float, nargs="+", help="mm/h, e.g. --rates 12 30 60 120 200")
     ap.add_argument("--manual", action="store_true", help="swap and weigh buckets A and B by hand instead of the load cell")
     ap.add_argument("--calibrate-scale", action="store_true", help="only calibrate the load cell, then show live readings")
+    ap.add_argument("--balance", action="store_true", help="balance the bucket sides with the load cell (worksheet phase 2)")
     ap.add_argument("--gpt-range", type=float, nargs=2, metavar=("MIN", "MAX"),
                     help=f"acceptable grams per tip (default {GPT_RANGE[0]:g} {GPT_RANGE[1]:g})")
     ap.add_argument("--sim", action="store_true", help="simulated gauge, no hardware")
@@ -1086,6 +1324,15 @@ def main():
         print(f"Accepting {GPT_RANGE[0]:g} to {GPT_RANGE[1]:g} g/tip")
     if a.calibrate_scale:
         calibrate_scale_only()
+        return
+    if a.balance:
+        if a.manual:
+            ap.error("--balance needs the load cell, so it can't be used with --manual")
+        b = BalanceSession(a)
+        try:
+            b.run()
+        except KeyboardInterrupt:
+            print(f"\nStopped. Rounds so far are in {getattr(b, 'dir', DATA_DIR)}")
         return
     s = Session(a)
     try:

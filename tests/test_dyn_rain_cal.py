@@ -427,6 +427,21 @@ class LoadCellTests(Test):
         self.assertIn("Empty the container", op.out.getvalue())
         self.assertEqual([st["rate_mm_h"] for st in op.s.stats], [30, 60])
 
+    def test_calibration_results_include_the_gauges_balance(self):
+        op = self.lc_operator(rates=(60,))
+        bal = os.path.join(drc.DATA_DIR, "balance_TEST_20261104_090000")
+        os.makedirs(bal)
+        final = {"round": 2, "time": "2026-11-04T09:30:00", "left_avg_ml": 6.01, "right_avg_ml": 6.12,
+                 "diff_pct": 1.8, "balanced": True, "stops": "L 3.0 R 3.5"}
+        with open(os.path.join(bal, "balance.json"), "w") as f:
+            json.dump({"method": "load cell, 5 tips per side", "limit_pct": 5.0, "final": final,
+                       "rounds": [final, final]}, f)
+        op.run()
+        with open(os.path.join(op.s.dir, "result.json")) as f:
+            self.assertEqual(json.load(f)["balance"]["final"]["diff_pct"], 1.8)
+        with open(os.path.join(op.s.dir, "summary.txt")) as f:
+            self.assertIn("differ by 1.8%", f.read())
+
     def test_no_empty_prompt_with_room_to_spare(self):
         op = self.lc_operator(rates=(30, 60)).run()
         self.assertNotIn("Empty the container", op.out.getvalue())
@@ -436,6 +451,96 @@ class LoadCellTests(Test):
         self.assertTrue(op.s.finished)
         self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
         self.assertIn("weighing it from the current reading", op.out.getvalue())
+
+
+class BalanceTests(unittest.TestCase):
+    """--balance: the load cell in place of the pipettors (worksheet phase 2)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        drc.DATA_DIR = self.tmp.name
+
+    def session(self, left_g, right_g, first="L", unseen=None):
+        """Runs one round: the bucket alternates sides starting with `first`, one tip a minute."""
+        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
+        b = drc.BalanceSession(args)
+        b.source = FakeGauge()
+        water = [0.0]
+        b.scale = type("S", (), {"grams_before": lambda self, t, w, g: 400.0 + water[0]})()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            b.setup()
+            b.answer(first)
+            order = (left_g, right_g) if first == "L" else (right_g, left_g)
+            for k in range(2 * drc.BALANCE_TIPS_PER_SIDE + 2):
+                if k != unseen:                # a tip the switch missed still dumps its water
+                    b.on_tip(60.0 * (k + 1))
+                water[0] += order[k % 2]       # this tip's water reaches the scale before the next tip
+        return b, out.getvalue()
+
+    def test_percent_difference_is_the_worksheet_formula(self):
+        self.assertAlmostEqual(drc.pct_difference(5.5, 5.7), 0.2 / 5.6 * 100)
+
+    def test_worksheet_example_1_left_light_lower_the_right_stop(self):
+        ok, advice = drc.balance_advice(5.2, 5.6)
+        self.assertFalse(ok)
+        self.assertIn("Lower the right stop", advice)
+
+    def test_worksheet_example_2_left_heavy_raise_the_right_stop(self):
+        ok, advice = drc.balance_advice(6.6, 6.1)
+        self.assertFalse(ok)
+        self.assertIn("Raise the right stop", advice)
+
+    def test_within_5_percent_but_too_small_still_needs_adjusting(self):
+        ok, advice = drc.balance_advice(5.2, 5.3)
+        self.assertFalse(ok)
+        self.assertIn("5.5 and 6.5", advice)
+
+    def test_balanced(self):
+        ok, _ = drc.balance_advice(5.9, 6.1)
+        self.assertTrue(ok)
+
+    def test_round_measures_each_side_and_names_them(self):
+        # The wxtools gauge: 5.5 g on one side, 3.9 g on the other, left filling first
+        b, out = self.session(left_g=5.5, right_g=3.9, first="L")
+        r = b.rounds[0]
+        self.assertAlmostEqual(r["left_avg_ml"], 5.5 / drc.DENSITY, places=2)
+        self.assertAlmostEqual(r["right_avg_ml"], 3.9 / drc.DENSITY, places=2)
+        self.assertFalse(r["balanced"])
+        self.assertIn("% difference", out)
+
+    def test_right_filling_first_keeps_the_names_right(self):
+        b, _ = self.session(left_g=5.5, right_g=3.9, first="R")
+        self.assertAlmostEqual(b.rounds[0]["left_avg_ml"], 5.5 / drc.DENSITY, places=2)
+
+    def test_missed_tip_repeats_the_round(self):
+        b, out = self.session(left_g=6.0, right_g=6.1, unseen=4)
+        self.assertEqual(b.rounds, [])
+        self.assertIn("missed or extra tip", out)
+        self.assertEqual(b.state, "side")       # asks which side is filling again
+
+    def test_bounce_ignored(self):
+        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
+        b = drc.BalanceSession(args)
+        b.source = FakeGauge()
+        b.scale = type("S", (), {"grams_before": lambda self, t, w, g: 400.0})()
+        with contextlib.redirect_stdout(io.StringIO()):
+            b.setup()
+            b.answer("L")
+            b.on_tip(60.0)
+            b.on_tip(61.0)
+        self.assertEqual(len(b.times), 1)
+
+    def test_saved_and_picked_up_by_the_calibration(self):
+        b, _ = self.session(left_g=6.0, right_g=6.1)
+        with contextlib.redirect_stdout(io.StringIO()):
+            b.answer("L 3.0 R 3.5")
+            b.answer("q")
+        found = drc.latest_balance("BAL")
+        self.assertEqual(found["final"]["stops"], "L 3.0 R 3.5")
+        self.assertTrue(found["final"]["balanced"])
+        self.assertIsNone(drc.latest_balance("OTHER"))
 
 
 class ScaleCalibrationTests(unittest.TestCase):
