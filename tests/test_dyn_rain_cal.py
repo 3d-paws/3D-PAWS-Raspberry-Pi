@@ -645,6 +645,97 @@ class CertificateDataTests(Test):
         self.assertEqual(cc.sht4x_crc([0xBE, 0xEF]), 0x92)
 
 
+MC_PATH = os.path.join(os.path.dirname(__file__), "..", "scripts", "sensors", "make_certificate.py")
+mc_spec = importlib.util.spec_from_file_location("make_certificate", MC_PATH)
+mc = importlib.util.module_from_spec(mc_spec)
+mc_spec.loader.exec_module(mc)
+
+
+class CertificateTests(Test):
+    """make_certificate.py: the numbers on the certificate and when it is a DRAFT."""
+
+    def folder(self, rates=(60,), balance=None, **kw):
+        op = LoadCellOperator(rates=rates, sensors=FakeSensors(), **kw)
+        self.addCleanup(op.close)
+        mc.DATA_DIR = drc.DATA_DIR
+        if balance is not None:
+            bal = os.path.join(drc.DATA_DIR, "balance_TEST_20261104_080000")
+            os.makedirs(bal)
+            final = {"round": 1, "time": "2026-11-04T08:30:00", "left_avg_ml": 6.0, "right_avg_ml": 6.05,
+                     "diff_pct": 0.8, "balanced": balance, "stops": ""}
+            with open(os.path.join(bal, "balance.json"), "w") as f:
+                json.dump({"method": "load cell, 5 tips per side", "limit_pct": 5.0, "final": final, "rounds": [final]}, f)
+        op.run()
+        return op.s.dir
+
+    def complete_info(self, **measured):
+        info, _ = mc.load_info()
+        info.update(operator="W. Nicewonger", reviewer="A. Reviewer", special_conditions="None noted",
+                    equipment=[["Net mass", "TAL220B with NAU7802", "SN 1"], ["Mass reference", "F2 set", "Cert 9"]])
+        info["measured"].update(mass_step_error_pct=0.05, evaporation_g_per_h=0.4, **measured)
+        with open(mc.info_path(), "w") as f:
+            json.dump(info, f)
+        return mc.load_info()[0]
+
+    def test_numbers_and_draft_reasons_for_an_incomplete_session(self):
+        d = mc.analyze(self.folder(), mc.load_info()[0])
+        self.assertEqual(len(d["stats"]), 1)
+        self.assertAlmostEqual(d["stats"][0]["e"], 0.0, places=6)          # sized here, every tip equal
+        reasons = " | ".join(d["draft"])
+        for text in ("rim diameter not measured", "evaporation not measured", "step error",
+                     "no bucket balance", "placeholders", "requires at least 5"):
+            self.assertIn(text, reasons)
+        self.assertNotIn("water temperature not measured", reasons)       # FakeSensors gives 21.4 C
+
+    def test_complete_session_is_numbered_once(self):
+        folder = self.folder(rates=(12, 30, 60, 120, 170), balance=True)
+        info = self.complete_info(rim_diameter_mm=200.0, rim_diameter_uncertainty_mm=0.05)
+        d = mc.analyze(folder, info)
+        self.assertEqual(d["draft"], [])
+        first = mc.certificate_number(folder, info, False)
+        self.assertEqual(first, "3DPAWS-RG-0001")
+        self.assertEqual(mc.certificate_number(folder, mc.load_info()[0], False), first)     # rebuild keeps it
+        self.assertEqual(mc.load_info()[0]["next_certificate_number"], 2)
+
+    def test_draft_is_not_numbered(self):
+        folder = self.folder()
+        self.assertEqual(mc.certificate_number(folder, mc.load_info()[0], True), "DRAFT (not numbered)")
+        self.assertFalse(os.path.exists(os.path.join(folder, "certificate.json")))
+
+    def test_measured_rim_shifts_every_error_by_the_area_ratio(self):
+        folder = self.folder()
+        design = mc.analyze(folder, mc.load_info()[0])
+        d_design = 2 * design["radius"]
+        info = self.complete_info(rim_diameter_mm=d_design * 1.01)
+        d = mc.analyze(folder, info)
+        self.assertAlmostEqual(d["stats"][0]["e"], (1.01 ** 2 - 1) * 100, places=3)
+
+    def test_unbalanced_bucket_keeps_it_a_draft(self):
+        d = mc.analyze(self.folder(balance=False), mc.load_info()[0])
+        self.assertTrue(any("bucket balance outside" in x for x in d["draft"]))
+
+    def test_flow_steadiness_ignores_unequal_bucket_sides(self):
+        times = {k: 12.0 * (k // 2) * 2 + (14.4 if k % 2 else 0.0) for k in range(30)}   # sides 14.4 s and 9.6 s
+        self.assertAlmostEqual(mc.flow_steadiness_pct(times, 0, 26), 0.0, places=9)
+
+    def test_fit_matches_a_known_quadratic(self):
+        xs = [10.0, 30.0, 60.0, 120.0, 170.0]
+        coef = mc.polyfit(xs, [0.1 + 0.97 * x + 4e-4 * x * x for x in xs], 2)
+        for got, want in zip(coef, [4e-4, 0.97, 0.1]):
+            self.assertAlmostEqual(got, want, places=9)
+
+    def test_pdf_builds(self):
+        try:
+            import reportlab, matplotlib  # noqa: F401
+        except ImportError:
+            self.skipTest("reportlab and matplotlib are not installed here")
+        folder = self.folder(rates=(12, 30, 60, 120, 170), balance=True)
+        d = mc.analyze(folder, mc.load_info()[0])
+        out = os.path.join(folder, "certificate.pdf")
+        mc.build_pdf(d, out, "DRAFT (not numbered)")
+        self.assertGreater(os.path.getsize(out), 20000)
+
+
 class ScaleCalibrationTests(unittest.TestCase):
 
     def setUp(self):

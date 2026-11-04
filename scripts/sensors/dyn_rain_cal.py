@@ -225,6 +225,31 @@ class SimScale:
         self.emptied += self.grams_now() - self.CONTAINER_G
 
 
+def software_version():
+    """'dyn_rain_cal.py <branch>@<commit>' from the repo this script runs from (read from .git, no git
+    command needed, so it works whoever owns the folder); just the name if it isn't a git checkout."""
+    name = "dyn_rain_cal.py"
+    git = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".git")
+    try:
+        with open(os.path.join(git, "HEAD")) as f:
+            head = f.read().strip()
+        if not head.startswith("ref: "):
+            return f"{name} {head[:7]}"
+        ref = head[5:]
+        commit = None
+        if os.path.exists(os.path.join(git, ref)):
+            with open(os.path.join(git, ref)) as f:
+                commit = f.read().strip()
+        else:
+            with open(os.path.join(git, "packed-refs")) as f:
+                for line in f:
+                    if line.strip().endswith(" " + ref):
+                        commit = line.split()[0]
+        return f"{name} {ref.split('/')[-1]}@{commit[:7]}" if commit else name
+    except OSError:
+        return name
+
+
 def cal_path():
     """Where the load cell calibration is kept between sessions."""
     return os.path.join(DATA_DIR, "loadcell_cal.json")
@@ -1112,6 +1137,8 @@ class Session:
                        "water_sensor": getattr(self.sensors, "water_name", None),
                        "funnel_storage": {format(self.rates[i], "g"): v for i, v in sorted(self.funnel.items())},
                        "method": "load cell" if self.loadcell else "manual",
+                       "software": software_version(),
+                       "loadcell_cal": getattr(self.scale, "cal", None),
                        "runs": self._run_records(ref["ml_per_tip"])}, f, indent=2)
         self.say(f"Saved: {self.dir}/summary.txt, result.json, runs.csv, tips.csv")
         self.finished = True
@@ -1121,7 +1148,7 @@ class Session:
     # rim area and time, e = (Im - Ir) / Ir. T is the run's 25 tip intervals, the time its 25 tips of water took.
     def _run_records(self, sized_ml):
         area = sized_ml * 1000.0 / MM_PER_TIP                       # mm2
-        keys = ["rate_mm_h", "run", "start_time", "end_time", "duration_s", "tips_per_min", "net_g",
+        keys = ["rate_mm_h", "run", "start_tip", "end_tip", "start_time", "end_time", "duration_s", "tips_per_min", "net_g",
                 "g_per_tip", "density_g_ml", "ml_per_tip", "irregular", "off_target_pct", "kept", "note"]
         out = []
         for run in self.runs:
