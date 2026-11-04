@@ -60,6 +60,8 @@ class Operator:
                 s.answer(str(round(s.tare[bucket] + drc.TIPS_PER_RUN * self.gpt)))
             elif text.startswith("Empty bucket"):
                 s.answer("" if self.keep_filling else "552")
+            elif text.startswith("Funnel check"):
+                s.answer(getattr(self, "funnel_answer", ""))
             elif text.startswith("FLAG"):
                 s.answer(self.flag_answer)
             elif text.startswith("Which rate"):
@@ -136,7 +138,7 @@ class LoadCellOperator(Operator):
     """Runs a load cell session: no bucket prompts, the scale weighs every run."""
 
     def __init__(self, rates=(60,), gpt=6.0, missed=(), flag_answer="", container=400.0, bumps=None, stop_at_last_run=False,
-                 sides=(1.0, 1.0), bounces=(), side_g=None):
+                 sides=(1.0, 1.0), bounces=(), side_g=None, sensors=None, funnel_answer=""):
         self.tmp = tempfile.TemporaryDirectory()
         drc.DATA_DIR = self.tmp.name
         args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates), manual=False)
@@ -150,6 +152,8 @@ class LoadCellOperator(Operator):
         self.side_g = side_g           # grams each bucket side dumps, alternating; None = gpt for every tip
         self.fed = 0
         self.s.scale = FakeScale(self, container)
+        self.s.sensors = sensors
+        self.funnel_answer = funnel_answer
         self.out = io.StringIO()
         with contextlib.redirect_stdout(self.out):
             self.s.setup()
@@ -164,6 +168,8 @@ class LoadCellOperator(Operator):
                 s.answer("")
             elif text.startswith("The scale holds"):
                 s.answer("")
+            elif text.startswith("Funnel check"):
+                s.answer(getattr(self, "funnel_answer", ""))
             elif text.startswith("FLAG"):
                 s.answer(self.flag_answer)
             elif text.startswith("Which rate"):
@@ -187,6 +193,9 @@ class LoadCellOperator(Operator):
                 t += 60.0 / s.target * (self.sides[tip % 2] - 1)
                 if tip in self.bumps:
                     s.scale.bump(self.bumps[tip])
+                if s.full_warned and not getattr(self, "emptied_on_banner", False):
+                    self.emptied_on_banner = True          # the operator empties it when told to
+                    s.scale.empty()
                 self.fed = tip + 1
                 if tip not in self.missed:
                     s.on_tip(t)
@@ -197,7 +206,7 @@ class LoadCellOperator(Operator):
 
 def make_run(n=1, off=0.0, irregular=0, bucket="A"):
     return {"rate_index": 0, "run": n, "bucket": bucket, "off_target_pct": off, "irregular": irregular,
-            "tips_per_min": 5.0, "kept": None, "side_ratio": 1.0}
+            "tips_per_min": 5.0, "kept": None, "side_ratio": 1.0, "density_g_ml": drc.DENSITY}
 
 
 class SessionTests(Test):
@@ -442,6 +451,26 @@ class LoadCellTests(Test):
         with open(os.path.join(op.s.dir, "summary.txt")) as f:
             self.assertIn("differ by 1.8%", f.read())
 
+    def test_container_filled_while_setting_the_drip_is_emptied_before_run_1(self):
+        # 3650 g passes the check at the rate start, but the setting tips push it over before arming
+        op = self.lc_operator(rates=(60,), container=3650.0).run()
+        out = op.out.getvalue()
+        self.assertIn("Empty the container", out)
+        self.assertLess(out.index("Empty the container"), out.index("Run 1 started"))
+        self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+
+    def test_nearly_full_during_runs_asks_to_empty_and_the_run_is_replaced(self):
+        # A small pretend capacity so the container fills during the runs
+        self.addCleanup(setattr, drc, "LOADCELL_MAX_G", drc.LOADCELL_MAX_G)
+        drc.LOADCELL_MAX_G = 1100
+        op = self.lc_operator(rates=(60,))
+        op.s._rate_need_g = lambda: 0
+        op.run()
+        self.assertIn("CONTAINER NEARLY FULL", op.out.getvalue())
+        runs = op.runs_at(0)
+        self.assertEqual(sum(1 for r in runs if r["kept"]), drc.RUNS_PER_RATE)
+        self.assertEqual(sum(1 for r in runs if r["kept"] is False), 1)
+
     def test_no_empty_prompt_with_room_to_spare(self):
         op = self.lc_operator(rates=(30, 60)).run()
         self.assertNotIn("Empty the container", op.out.getvalue())
@@ -541,6 +570,79 @@ class BalanceTests(unittest.TestCase):
         self.assertEqual(found["final"]["stops"], "L 3.0 R 3.5")
         self.assertTrue(found["final"]["balanced"])
         self.assertIsNone(drc.latest_balance("OTHER"))
+
+
+class FakeSensors:
+    """Laboratory sensors with fixed readings; water at 21.4 C as in the certificate example."""
+    water_name = "fake bridge"
+
+    def __init__(self, water_c=21.4):
+        self.water_c = water_c
+
+    def read(self, label=""):
+        return {"label": label, "time": "2026-11-04T09:00:00", "water_c": self.water_c,
+                "air_c": 22.5, "rh_pct": 37.0, "pressure_hpa": 835.2}
+
+
+class CertificateDataTests(Test):
+    """What the calibration records for the certificate (WMO-No. 8 Annex 6.A)."""
+
+    def session(self, sensors=None, funnel="", rates=(60,)):
+        op = LoadCellOperator(rates=rates, sensors=sensors, funnel_answer=funnel)
+        self.addCleanup(op.close)
+        op.run()
+        with open(os.path.join(op.s.dir, "result.json")) as f:
+            return op, json.load(f)
+
+    def test_density_formula_matches_the_certificate_design(self):
+        self.assertAlmostEqual(drc.water_density(21.4), 0.99791, places=5)
+
+    def test_density_comes_from_the_water_temperature(self):
+        op, res = self.session(sensors=FakeSensors(21.4))
+        run = res["runs"][0]
+        self.assertAlmostEqual(run["density_g_ml"], 0.99791, places=5)
+        self.assertAlmostEqual(run["ml_per_tip"], 6.0 / 0.99791, places=3)
+        self.assertEqual([c["label"] for c in res["conditions"]], ["start", "60 mm/h", "end"])
+        self.assertEqual(res["water_sensor"], "fake bridge")
+
+    def test_no_sensors_falls_back_to_the_fixed_density(self):
+        op, res = self.session()
+        self.assertEqual(res["conditions"], [])
+        self.assertAlmostEqual(res["runs"][0]["density_g_ml"], drc.DENSITY)
+        with open(os.path.join(op.s.dir, "summary.txt")) as f:
+            self.assertIn("fixed, no water temperature", f.read())
+
+    def test_funnel_answer_recorded_per_rate(self):
+        op, res = self.session(funnel="y")
+        self.assertEqual(res["funnel_storage"], {"60": True})
+        with open(os.path.join(op.s.dir, "summary.txt")) as f:
+            self.assertIn("water backed up at 60 mm/h", f.read())
+
+    def test_every_run_has_times_and_intensities(self):
+        op, res = self.session()
+        runs = res["runs"]
+        self.assertEqual(len(runs), drc.RUNS_PER_RATE)
+        for r in runs:
+            self.assertTrue(r["start_time"] and r["end_time"])
+            # 25 tips in T seconds is 18000 / T mm/h
+            self.assertAlmostEqual(r["im_mm_h"], 18000.0 / r["duration_s"], places=2)
+            # every tip holds the same water and the rim was sized from these runs, so e is zero
+            self.assertAlmostEqual(r["e_pct"], 0.0, places=2)
+            self.assertAlmostEqual(r["ir_mm_h"], r["im_mm_h"], places=1)
+
+    def test_error_matches_the_sizing_identity(self):
+        # e = (V_S / V_run - 1) x 100, the handoff's simplification
+        op, res = self.session(rates=(30, 60))
+        sized = [st for st in res["rates"] if st["rate_mm_h"] == res["sizing_rate_mm_h"]][0]["ml_per_tip"]
+        for r in res["runs"]:
+            self.assertAlmostEqual(r["e_pct"], (sized / r["ml_per_tip"] - 1) * 100, places=1)
+
+    def test_sht45_crc_matches_the_datasheet_example(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "sensors", "cal_conditions.py")
+        spec = importlib.util.spec_from_file_location("cal_conditions", path)
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        self.assertEqual(cc.sht4x_crc([0xBE, 0xEF]), 0x92)
 
 
 class ScaleCalibrationTests(unittest.TestCase):

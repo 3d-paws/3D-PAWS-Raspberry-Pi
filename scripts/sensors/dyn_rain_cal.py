@@ -86,7 +86,7 @@ DEFAULT_RATES = [12, 30, 60, 120, 200]   # mm/h
 TIPS_PER_RUN = 25
 RUNS_PER_RATE = 5
 MIN_RUNS = 3              # WMO minimum
-DENSITY = 0.998           # g/mL, room temperature
+DENSITY = 0.998           # g/mL, used when there is no water temperature reading (otherwise from the DS18B20)
 MM_PER_TIP = 0.2
 STEADY_TIPS = 5           # last N tips must all be within tolerance (each rate measured over a pair of
                           # tips, one per bucket side, so a gauge whose sides fill at different speeds can be steady)
@@ -98,6 +98,7 @@ IDEAL_GPT = (5.5, 6.5)    # target grams per tip; rates outside it are marked in
 DISCARD_OFF_PCT = 10.0    # a run averaging more than this % off the target rate defaults to discard
 SCALE_MAX_G = 6000        # manual: scale capacity; warn before a bucket that keeps filling would exceed it
 LOADCELL_MAX_G = 5000     # load cell capacity, container included
+FULL_MARGIN_G = 200       # during runs, ask for the container to be emptied this close to the limit
 PRE_WINDOW_S = 1.0        # load cell: the weight before a tip is the median of the readings in this window...
 PRE_GUARD_S = 0.1         # ...ending this long before the tip, so the tip's own splash isn't included
 DISTURB_G = 10.0          # load cell: a drop this large between tips means the container was bumped or lifted
@@ -110,6 +111,21 @@ DATA_DIR = "/home/pi/data/tests"   # fixed path, so running with or without sudo
 def tpm_for(mm_h):
     """Tips per minute for an intensity."""
     return mm_h / (60.0 * MM_PER_TIP)
+
+
+def water_density(t_c):
+    """Water density in g/mL at t_c degC (Tanaka et al. 2001, as in the certificate design). 0.99791 at 21.4."""
+    a1, a2, a3, a4, a5 = -3.983035, 301.797, 522528.9, 69.34881, 999.974950
+    return a5 * (1 - (t_c + a1) ** 2 * (t_c + a2) / (a3 * (t_c + a4))) / 1000.0
+
+
+class SimConditions:
+    """Simulated laboratory sensors for --sim."""
+    water_name = "simulated"
+
+    def read(self, label=""):
+        return {"label": label, "time": dt.datetime.now().isoformat(timespec="seconds"),
+                "water_c": 21.4, "air_c": 22.5, "rh_pct": 37.0, "pressure_hpa": 835.2}
 
 
 def side_text(stats):
@@ -242,6 +258,11 @@ class Session:
         self.loadcell = not getattr(args, "manual", False)
         self.scale = None
         self.pre_w = []                # load cell: weight just before each tip (g), same index as tips
+        self.sensors = None            # cal_conditions.Conditions (or SimConditions); None = not measured
+        self.conditions = []           # readings at the start, at each rate, and at the end
+        self.density = DENSITY         # g/mL from the latest water temperature
+        self.funnel = {}               # rate index -> True if water backed up in the funnel
+        self.full_warned = False       # load cell: "container nearly full" shown and not yet emptied
         self.pending = []              # load cell: runs that ended and are waiting for their weight
         self.clock = Clock(args.speed if args.sim else 1.0)
         self.q = queue.Queue()
@@ -337,12 +358,14 @@ class Session:
         self.tips_csv = self._csv("tips.csv", ["tip", "time", "t_s", "interval_s", "tips_per_min",
                                                "phase", "rate_mm_h", "run", "scale_g"])
         self.runs_csv = self._csv("runs.csv", ["rate_mm_h", "target_tpm", "run", "bucket",
-                                               "start_tip", "end_tip", "duration_s", "tips_per_min",
+                                               "start_tip", "end_tip", "start_time", "end_time",
+                                               "duration_s", "tips_per_min", "density_g_ml",
                                                "start_g", "end_g", "net_g", "g_per_tip",
                                                "ml_per_tip", "side_ratio", "side_heavy_g", "side_light_g",
                                                "off_target_pct", "irregular", "kept",
                                                "note"])
         self.say(f"\nSaving to {self.dir}")
+        self._read_conditions("start")
         self.say("\nRate plan:")
         for r in rates:
             t = tpm_for(r)
@@ -358,6 +381,27 @@ class Session:
         for b in ("A", "B"):
             self.ask(f"Weigh bucket {b} DRY and enter its weight in grams:",
                      self._tare_handler(b), auto=lambda: 550, scale=lambda: 550)
+
+    # Annex 6.A conditions: water temperature (sets the density), air temperature, humidity, pressure
+    def _read_conditions(self, label):
+        if self.sensors is None:
+            return
+        r = self.sensors.read(label)
+        self.conditions.append(r)
+        if r["water_c"] is not None:
+            self.density = water_density(r["water_c"])
+        def show(v, fmt):
+            return "n/a" if v is None else fmt % v
+        self.say(f"   Conditions ({label}): water {show(r['water_c'], '%.2f C')}, air {show(r['air_c'], '%.2f C')}, "
+                 f"RH {show(r['rh_pct'], '%.1f%%')}, pressure {show(r['pressure_hpa'], '%.2f hPa')}; "
+                 f"water density {self.density:.5f} g/mL")
+
+    def _density_text(self):
+        waters = [c["water_c"] for c in self.conditions if c["water_c"] is not None]
+        if not waters:
+            return f"density {DENSITY} g/mL (fixed, no water temperature)"
+        return (f"density from water temperature {min(waters):.2f} to {max(waters):.2f} C "
+                f"({water_density(max(waters)):.5f} to {water_density(min(waters)):.5f} g/mL)")
 
     def _csv(self, name, fields):
         f = open(os.path.join(self.dir, name), "w", newline="")
@@ -407,6 +451,7 @@ class Session:
         self.run_no = 0
         self.source.set_target(self.target)
         self.say(f"\n========== RATE {self.rate_i + 1} of {len(self.rates)}: {self.rate:g} mm/h ==========")
+        self._read_conditions(f"{self.rate:g} mm/h")
         band = (f"Adjust the drip bolt to {self.target:.2f} tips/min "
                 f"({self.target * (1 - STEADY_TOL):.2f} to {self.target * (1 + STEADY_TOL):.2f}).")
         if not self.loadcell:
@@ -445,6 +490,12 @@ class Session:
         if line.lower() != "force" and not self.steady:
             self.say("   Not steady yet. Wait for STEADY, or type 'force' to start anyway.")
             return False
+        # A long drip adjustment can fill the container: make room for the whole rate before run 1
+        if self.loadcell and line.lower() != "go" and self.scale.grams_now() + self._rate_need_g() > LOADCELL_MAX_G:
+            self.prompts.appendleft({"text": self._empty_text(), "handler": self._emptied_handler,
+                                     "auto": "", "scale": None, "shown": False})
+            return False
+        self._ask_funnel()
         if self.loadcell:
             self.phase = "armed"
             self.say("   Armed. The next tip starts run 1.")
@@ -456,6 +507,23 @@ class Session:
         self.phase = "armed"
         self.say("   Armed. Get bucket A in hand; swap it in when the next tip has drained.")
         return True
+
+    # Annex 6.A funnel storage: asked once per rate, when the drip is at the rate. It is answered while
+    # run 1 goes on. Water backing up means this and higher intensities are affected.
+    def _ask_funnel(self):
+        ri = self.rate_i
+
+        def h(line):
+            a = line.strip().lower()
+            if a not in ("", "y", "yes", "n", "no"):
+                self.say("   Type y or n.")
+                return False
+            self.funnel[ri] = a in ("y", "yes")
+            if self.funnel[ri]:
+                self.say(f"   Noted: water backs up in the funnel at {self.rates[ri]:g} mm/h.")
+            return True
+        self.ask_next(f"Funnel check at {self.rate:g} mm/h: is water backing up (pooling) in the funnel? [y/N]",
+                      h, auto="n")
 
     # Step 4: called for every tip - log it, then check steadiness or count it toward the current run
     def on_tip(self, t):
@@ -481,6 +549,16 @@ class Session:
                "rate_mm_h": self.rate if self.phase != "setup" else "", "run": self.run_no or "",
                "scale_g": round(w, 2) if w is not None else ""}
         self._write(self.tips_csv, row)
+        # Nearly full during runs: empty now. The run in progress is then discarded (the drop) and replaced.
+        if self.loadcell and w is not None and self.phase in ("armed", "running", "finishing"):
+            if w > LOADCELL_MAX_G - FULL_MARGIN_G and not self.full_warned:
+                self.full_warned = True
+                self.banner(f"CONTAINER NEARLY FULL ({w:.0f} of {LOADCELL_MAX_G} g): EMPTY IT NOW. "
+                            "The run in progress will be discarded and replaced.")
+                if self.args.auto and hasattr(self.scale, "empty"):
+                    self.scale.empty()
+            elif w < LOADCELL_MAX_G - self._rate_need_g():
+                self.full_warned = False
         # A run that ended at the previous tip can be weighed now
         for run in [r for r in self.pending if r["end_tip"] < i]:
             self._weigh_run(run, self.pre_w[run["start_tip"] + 1:i + 1])
@@ -590,7 +668,9 @@ class Session:
         # How far the whole run's average was from the target; flagged at weighing if over 5%
         off_pct = (tpm / self.target - 1) * 100
         run = {"rate_mm_h": self.rate, "target_tpm": round(self.target, 3), "run": self.run_no,
-               "bucket": b, "start_tip": start, "end_tip": i, "duration_s": round(dur, 2),
+               "bucket": b, "start_tip": start, "end_tip": i, "start_time": self.clock.stamp(self.tips[start]),
+               "end_time": self.clock.stamp(self.tips[i]), "duration_s": round(dur, 3),
+               "density_g_ml": round(self.density, 5),
                "tips_per_min": round(tpm, 3), "side_ratio": side_ratio,
                "off_target_pct": round(off_pct, 2), "irregular": len(irregular),
                "kept": None, "rate_index": self.rate_i}
@@ -662,7 +742,7 @@ class Session:
                          f"   Re-enter the full weight, type s to correct the starting weight, or d to discard this run.")
                 return False
             run.update(end_g=v, start_g=self.tare[b], net_g=round(net, 1),
-                       g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / DENSITY, 4))
+                       g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / run["density_g_ml"], 4))
             self.say(f"   Run {run['run']}: {net:g} g = {gpt:.3f} g/tip at "
                      f"{run['tips_per_min']:.2f} tips/min")
             # Starting weight for the bucket's next run comes after any keep question
@@ -805,7 +885,7 @@ class Session:
         net = end - start
         gpt = net / TIPS_PER_RUN
         run.update(start_g=round(start, 2), end_g=round(end, 2), net_g=round(net, 2),
-                   g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / DENSITY, 4))
+                   g_per_tip=round(gpt, 4), ml_per_tip=round(gpt / run["density_g_ml"], 4))
         self._side_weights(run, series)
         self.say(f"   Run {run['run']} weighed: {net:.1f} g = {gpt:.3f} g/tip at {run['tips_per_min']:.2f} tips/min")
         # Out of range is never kept: with no typo possible, the scale or the setup was disturbed
@@ -900,6 +980,7 @@ class Session:
                 "spread_pct": (max(used) - min(used)) / mean * 100 if len(used) > 1 else 0.0,
                 "tips_per_min": statistics.mean(r["tips_per_min"] for r in runs),
                 "side_imbalance_pct": statistics.mean(sides) * 100 if sides else None,
+                "density_g_ml": statistics.mean(r["density_g_ml"] for r in runs),
                 "side_heavy_g": heavy, "side_light_g": light,
                 "side_mass_diff_pct": (heavy / light - 1) * 100 if weighed and light > 0 else None}
 
@@ -927,6 +1008,7 @@ class Session:
     # sizing rate, then ask which rate to size the rim at
     def results(self):
         # Rates where every run was discarded are listed but left out of the comparison
+        self._read_conditions("end")
         all_stats = [self.rate_stats(i) for i in range(len(self.rates))]
         missing = [self.rates[i] for i, st in enumerate(all_stats) if st is None]
         stats = [st for st in all_stats if st is not None]
@@ -935,10 +1017,10 @@ class Session:
             self.finished = True
             return
         lines = [f"Gauge {self.gauge_id}   {dt.datetime.now():%Y-%m-%d %H:%M}",
-                 f"{TIPS_PER_RUN} tips/run, density {DENSITY} g/mL, {MM_PER_TIP} mm/tip", "",
+                 f"{TIPS_PER_RUN} tips/run, {MM_PER_TIP} mm/tip, {self._density_text()}", "",
                  "Rate (mm/h)  tips/min  mL/tip   g/tip  runs  spread  side imbalance"]
         for s in stats:
-            gpt = s["ml_per_tip"] * DENSITY
+            gpt = s["ml_per_tip"] * s["density_g_ml"]
             ideal = "" if IDEAL_GPT[0] <= gpt <= IDEAL_GPT[1] else f"   outside ideal {IDEAL_GPT[0]}-{IDEAL_GPT[1]} g/tip"
             lines.append(f"{s['rate_mm_h']:>10g}  {s['tips_per_min']:8.2f}  {s['ml_per_tip']:.4f}  {gpt:5.2f}"
                          f"  {s['n_used']}/{s['n_runs']}  {s['spread_pct']:5.2f}%  "
@@ -965,6 +1047,22 @@ class Session:
                 else:
                     lines.append(f"{s['rate_mm_h']:>10g}  {s['side_heavy_g']:10.2f} g  {s['side_light_g']:10.2f} g"
                                  f"  {s['side_mass_diff_pct']:+11.1f}%")
+        # Conditions and funnel storage (Annex 6.A)
+        lines += ["", "Conditions:"]
+        if self.conditions:
+            lines.append(f"  {'when':<12} {'time':<20} {'water C':>8} {'air C':>7} {'RH %':>6} {'hPa':>8}")
+            for c in self.conditions:
+                cell = lambda v, f: f % v if v is not None else "n/a"
+                lines.append(f"  {c['label']:<12} {c['time'][:19].replace('T', ' '):<20} {cell(c['water_c'], '%8.2f'):>8}"
+                             f" {cell(c['air_c'], '%7.2f'):>7} {cell(c['rh_pct'], '%6.1f'):>6} {cell(c['pressure_hpa'], '%8.2f'):>8}")
+        else:
+            lines.append("  not measured (no condition sensors)")
+        backed = [self.rates[i] for i in sorted(self.funnel) if self.funnel[i]]
+        unanswered = [self.rates[i] for i in range(len(self.rates)) if i not in self.funnel]
+        lines.append("Funnel storage: " + (f"water backed up at {', '.join(format(r, 'g') for r in backed)} mm/h"
+                                            if backed else "no water backing up at any tested rate")
+                     + (f" (not answered at {', '.join(format(r, 'g') for r in unanswered)} mm/h)" if unanswered else ""))
+
         # Bucket balance measured before this session (--balance) for the same gauge, if any
         self.balance = latest_balance(self.gauge_id)
         lines += ["", "Bucket balance (from --balance before this session):"]
@@ -1010,10 +1108,31 @@ class Session:
                        "rates": self.stats, "sizing_rate_mm_h": ref["rate_mm_h"],
                        "rim_radius_mm": round(r, 3), "errors_pct": errors,
                        "gpt_range": list(GPT_RANGE), "ignored_pulses": self.rejected,
-                       "balance": self.balance}, f, indent=2)
+                       "balance": self.balance, "conditions": self.conditions,
+                       "water_sensor": getattr(self.sensors, "water_name", None),
+                       "funnel_storage": {format(self.rates[i], "g"): v for i, v in sorted(self.funnel.items())},
+                       "method": "load cell" if self.loadcell else "manual",
+                       "runs": self._run_records(ref["ml_per_tip"])}, f, indent=2)
         self.say(f"Saved: {self.dir}/summary.txt, result.json, runs.csv, tips.csv")
         self.finished = True
         return True
+
+    # Every run with its Annex 6.A intensities for the chosen rim: Im from the tips, Ir from mass, density,
+    # rim area and time, e = (Im - Ir) / Ir. T is the run's 25 tip intervals, the time its 25 tips of water took.
+    def _run_records(self, sized_ml):
+        area = sized_ml * 1000.0 / MM_PER_TIP                       # mm2
+        keys = ["rate_mm_h", "run", "start_time", "end_time", "duration_s", "tips_per_min", "net_g",
+                "g_per_tip", "density_g_ml", "ml_per_tip", "irregular", "off_target_pct", "kept", "note"]
+        out = []
+        for run in self.runs:
+            rec = {k: run.get(k) for k in keys}
+            if run.get("net_g") is not None:
+                t = run["duration_s"]
+                im = TIPS_PER_RUN * MM_PER_TIP * 3600.0 / t
+                ir = run["net_g"] / run["density_g_ml"] * 1000.0 / area * 3600.0 / t
+                rec.update(im_mm_h=round(im, 3), ir_mm_h=round(ir, 3), e_pct=round((im - ir) / ir * 100, 3))
+            out.append(rec)
+        return out
 
     # ---------------- main loop
     # Tips come from the GPIO pin (or the simulator); answers come from the keyboard.
@@ -1026,6 +1145,7 @@ class Session:
                 self.scale = SimScale(self.source, self.clock)
             self.say(f"SIMULATION at {a.speed:g}x speed" + (" (automatic)" if a.auto else "")
                      + (" with a simulated load cell" if self.loadcell else ""))
+            self.sensors = SimConditions()
         else:
             if self.loadcell:
                 self.scale = open_scale(self.clock.now)
@@ -1033,6 +1153,7 @@ class Session:
                 nau7802.use_or_calibrate(self.scale, cal_path())
             self.source = GpioTips(self.q, self.clock)
             self.say(f"Reading tips on GPIO{TIP_GPIO}")
+            self.sensors = open_conditions()
         self.setup()
         if not a.auto:
             threading.Thread(target=stdin_reader, args=(self.q,), daemon=True).start()
@@ -1283,6 +1404,19 @@ def open_scale(now):
     except (ImportError, OSError) as e:
         sys.exit(f"Could not start the Qwiic Scale (NAU7802 at I2C 0x2A): {e}\n"
                  "Check the Qwiic cable and that I2C is enabled, or run with --manual to weigh buckets by hand.")
+
+
+# Laboratory condition sensors (cal_conditions.py next to this script); None if smbus2 or the bus is missing
+def open_conditions():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import cal_conditions
+        c = cal_conditions.Conditions()
+    except (ImportError, OSError) as e:
+        print(f"Condition sensors not available ({e}); water density fixed at {DENSITY} g/mL.")
+        return None
+    print("Water temperature: " + (c.water_name or "no 1-Wire bridge found, density fixed at %g g/mL" % DENSITY))
+    return c
 
 
 # --calibrate-scale: calibrate, then print the weight every second to check it (Ctrl+C stops)
