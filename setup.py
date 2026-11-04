@@ -43,7 +43,6 @@ setup(
             "adafruit-circuitpython-hdc302x",
             "adafruit-circuitpython-lps35hw",
             "adafruit-circuitpython-ads1x15",
-            "adafruit-circuitpython-sht4x",
         ], 
 
         keywords=['3d', 'paws'],

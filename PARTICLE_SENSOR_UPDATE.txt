@@ -22,7 +22,7 @@ NEW sensor scripts (scripts/sensors/):
   hdc302x.py           — Adafruit HDC302x temperature & humidity
   lps35hw.py           — Adafruit LPS35HW water-resistant pressure
   bmp581.py            — Bosch BMP581 barometric pressure & temp (direct I2C, no library)
-  sht45.py             — Adafruit SHT45 (SHT4x) temperature & humidity
+  sht45.py             — Sensirion SHT45 temperature & humidity (I2C 0x44, smbus2, no Adafruit library)
   maxbotix.py          — Maxbotix ultrasonic distance sensor (via ADS1115 ADC)
   pyranometer.py       — SP Lite2 Pyranometer / Kipp & Zonen (via ADS1115 ADC)
   b_lux_v30b.py        — DFRobot B-LUX-V30B ambient light (I2C 0x4A)
@@ -97,8 +97,7 @@ official update script is run. For a manual install, run:
                    adafruit-circuitpython-pm25 \
                    adafruit-circuitpython-hdc302x \
                    adafruit-circuitpython-lps35hw \
-                   adafruit-circuitpython-ads1x15 \
-                   adafruit-circuitpython-sht4x
+                   adafruit-circuitpython-ads1x15
 
 
 --------------------------------------------------------------------------------
@@ -187,8 +186,7 @@ Step 3 — SSH into the Pi and install new Python packages:
                    adafruit-circuitpython-pm25 \
                    adafruit-circuitpython-hdc302x \
                    adafruit-circuitpython-lps35hw \
-                   adafruit-circuitpython-ads1x15 \
-                   adafruit-circuitpython-sht4x
+                   adafruit-circuitpython-ads1x15
 
 Step 4 — Rebuild the cron so the new sensors get On/Off jobs (keeps the
          current on/off state of existing sensors):
