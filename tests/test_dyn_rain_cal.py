@@ -133,7 +133,8 @@ class FakeScale:
 class LoadCellOperator(Operator):
     """Runs a load cell session: no bucket prompts, the scale weighs every run."""
 
-    def __init__(self, rates=(60,), gpt=6.0, missed=(), flag_answer="", container=400.0, bumps=None, stop_at_last_run=False):
+    def __init__(self, rates=(60,), gpt=6.0, missed=(), flag_answer="", container=400.0, bumps=None, stop_at_last_run=False,
+                 sides=(1.0, 1.0), bounces=()):
         self.tmp = tempfile.TemporaryDirectory()
         drc.DATA_DIR = self.tmp.name
         args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="TEST", rates=list(rates), manual=False)
@@ -142,6 +143,8 @@ class LoadCellOperator(Operator):
         self.gpt, self.missed, self.flag_answer = gpt, set(missed), flag_answer
         self.bumps = bumps or {}       # tip number -> grams lifted off just before it
         self.stop_at_last_run = stop_at_last_run   # the drip is turned off right after the last run
+        self.sides = sides             # each bucket side's fill time as a multiple of the average gap
+        self.bounces = set(bounces)    # tip numbers followed 2.4 s later by a false pulse
         self.fed = 0
         self.s.scale = FakeScale(self, container)
         self.out = io.StringIO()
@@ -178,11 +181,14 @@ class LoadCellOperator(Operator):
                     s.poll()
                     self.answer_prompts()
                     return self
+                t += 60.0 / s.target * (self.sides[tip % 2] - 1)
                 if tip in self.bumps:
                     s.scale.bump(self.bumps[tip])
                 self.fed = tip + 1
                 if tip not in self.missed:
                     s.on_tip(t)
+                if tip in self.bounces:
+                    s.on_tip(t + 2.4)
         raise AssertionError("Session did not finish")
 
 
@@ -351,6 +357,20 @@ class LoadCellTests(Test):
         self.assertEqual(len(bumped), 1)
         self.assertIs(bumped[0]["kept"], False)
         self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+
+    def test_unequal_bucket_sides_still_read_steady(self):
+        # The wxtools gauge: one side fills in about 1.2x the average gap, the other in 0.8x
+        op = self.lc_operator(rates=(60,), sides=(1.2, 0.8)).run()
+        self.assertIn("STEADY", op.out.getvalue())
+        self.assertNotIn("drifted", op.out.getvalue())
+        self.assertEqual(sum(1 for r in op.runs_at(0) if r["kept"]), drc.RUNS_PER_RATE)
+        self.assertEqual(len(op.runs_at(0)), drc.RUNS_PER_RATE)
+
+    def test_bucket_bounce_during_a_run_is_ignored(self):
+        op = self.lc_operator(rates=(60,), bounces=(40, 80)).run()
+        self.assertEqual(op.s.rejected, 2)
+        self.assertEqual(len(op.runs_at(0)), drc.RUNS_PER_RATE)
+        self.assertTrue(all(r["kept"] for r in op.runs_at(0)))
 
     def test_out_of_range_run_is_discarded_without_asking(self):
         op = self.lc_operator(rates=(60,))

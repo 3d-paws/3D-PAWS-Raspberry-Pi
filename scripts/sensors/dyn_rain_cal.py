@@ -78,13 +78,16 @@ import time
 TIP_GPIO = 23             # BCM pin the gauge signal is on (same pin as rain.py)
 BOUNCE_S = 0.05           # switch debounce
 LOCKOUT_S = 0.5           # ignore a second tip sooner than this (16.7 tips/min = 3.6 s)
+BOUNCE_FRAC = 0.35        # once runs start, also ignore a "tip" sooner than this fraction of the target gap:
+                          # a bucket can't refill that fast, so it is the bucket bouncing and re-closing the switch
 DEFAULT_RATES = [12, 30, 60, 120, 200]   # mm/h
 TIPS_PER_RUN = 25
 RUNS_PER_RATE = 5
 MIN_RUNS = 3              # WMO minimum
 DENSITY = 0.998           # g/mL, room temperature
 MM_PER_TIP = 0.2
-STEADY_TIPS = 5           # last N tips must all be within tolerance
+STEADY_TIPS = 5           # last N tips must all be within tolerance (each rate measured over a pair of
+                          # tips, one per bucket side, so a gauge whose sides fill at different speeds can be steady)
 STEADY_TOL = 0.05         # +/- 5 %
 FLAG_PCT = 2.0            # flag a run this far from the others
 GPT_RANGE = (5.0, 7.5)    # acceptable grams per tip; outside this, re-enter or discard (tip volume rises at high rates).
@@ -453,10 +456,14 @@ class Session:
 
     # Step 4: called for every tip - log it, then check steadiness or count it toward the current run
     def on_tip(self, t):
-        # A second pulse too soon after a tip is switch bounce, not a real tip
-        if self.tips and t - self.tips[-1] < LOCKOUT_S:
+        # A second pulse too soon after a tip is switch or bucket bounce, not a real tip. While the drip is
+        # being set only the short lockout applies, so a drip far above target still shows its real rate.
+        limit = LOCKOUT_S
+        if self.phase in ("armed", "running", "finishing"):
+            limit = max(LOCKOUT_S, BOUNCE_FRAC * 60.0 / self.target)
+        if self.tips and t - self.tips[-1] < limit:
             self.rejected += 1
-            self.say(f"   (ignored a second pulse {1000 * (t - self.tips[-1]):.0f} ms after a tip)")
+            self.say(f"   (ignored a pulse {t - self.tips[-1]:.2f} s after a tip: too soon to be a real tip)")
             return
         i = len(self.tips)
         # Load cell: the weight just before this tip holds the water of every earlier tip
@@ -479,24 +486,33 @@ class Session:
             return
         # Still setting the drip (or armed): check steadiness; an armed tip starts run 1
         if self.phase in ("setting", "armed"):
-            self._steady_check(rate)
+            self._steady_check(self._pair_rate(i))
             if self.phase == "armed":
                 self._begin_run(i, "A", first=True)
             return
         # running
         n = i - self.run_start
         tag = f"   run {self.run_no}/{self.runs_planned(self.rate_i)}  tip {n:>2}/{TIPS_PER_RUN}"
-        self.say(f"{tag}   {rate:6.2f} tips/min" if rate else tag)
+        pair = self._pair_rate(i)
+        self.say(f"{tag}   {pair:6.2f} tips/min" if pair else tag)
         self._drift_check(i, n)
         if n == TIPS_PER_RUN:
             self._end_run(i)
 
-    # STEADY = the last 5 tips were all within 5% of the target tips/min
+    # Tips per minute over the last two gaps (one fill of each bucket side); the single gap for the first one
+    def _pair_rate(self, k):
+        if k >= 2:
+            return 120.0 / (self.tips[k] - self.tips[k - 2])
+        if k == 1:
+            return 60.0 / (self.tips[1] - self.tips[0])
+        return None
+
+    # STEADY = the last 5 tips' pair rates were all within 5% of the target tips/min
     def _steady_check(self, rate):
         if rate is None:
             return
         n = len(self.tips) - 1
-        recent = [60.0 / (self.tips[k] - self.tips[k - 1]) for k in range(max(1, n - STEADY_TIPS + 1), n + 1)]
+        recent = [self._pair_rate(k) for k in range(max(2, n - STEADY_TIPS + 1), n + 1)]
         ok = len(recent) >= STEADY_TIPS and all(abs(r / self.target - 1) <= STEADY_TOL for r in recent)
         within = sum(abs(r / self.target - 1) <= STEADY_TOL for r in recent)
         self.say(f"   {rate:6.2f} tips/min   target {self.target:.2f}   in band {within}/{STEADY_TIPS}"
@@ -509,12 +525,14 @@ class Session:
         elif not ok:
             self.steady = False
 
-    # During a run: warn as soon as the last 5 tips drift more than 5% from the target, so the
-    # drip can be adjusted before the run ends, and say when it is back on target
+    # During a run: warn as soon as the last 6 gaps drift more than 5% from the target, so the
+    # drip can be adjusted before the run ends, and say when it is back on target. An even number of
+    # gaps holds as many fills of each bucket side, so unequal sides don't look like drift.
     def _drift_check(self, i, n):
-        if n < STEADY_TIPS:
+        window = 2 * ((STEADY_TIPS + 1) // 2)
+        if n < window:
             return
-        recent = STEADY_TIPS * 60.0 / (self.tips[i] - self.tips[i - STEADY_TIPS])
+        recent = window * 60.0 / (self.tips[i] - self.tips[i - window])
         off = (recent / self.target - 1) * 100
         if abs(off) > STEADY_TOL * 100 and not self.drift_warned:
             self.drift_warned = True
