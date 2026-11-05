@@ -14,6 +14,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import math
 import os
 import sys
 import tempfile
@@ -491,32 +492,37 @@ class BalanceTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         drc.DATA_DIR = self.tmp.name
 
-    def session(self, left_g, right_g, first="L", unseen=None, late=None, flow=0.1):
-        """One round with a steady drip of `flow` g/s: each side fills for (its volume / flow) seconds, so tips
-        alternate sides starting with `first`. `unseen` is a tip the switch misses; `late` is a tip whose
-        water mostly arrives after the next tip, as the slow drain on the real rig did."""
-        args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
-        b = drc.BalanceSession(args)
-        b.source = FakeGauge()
-        water = [0.0]
-        b.scale = type("S", (), {"grams_before": lambda self, t, w, g: 400.0 + water[0]})()
+    def session(self, left_g, right_g, first="L", unseen=None, late=None, flow=0.1, flows=None, b=None):
+        """One round. Each side fills for (its volume / flow) seconds, so tips alternate sides starting with
+        `first`; `flows` gives a different flow per tip (an unsteady pump). A tip's water lands on the scale
+        1 s after it; for the `late` tip 95% trickles in 3 s before the next tip. `unseen` is a tip the switch
+        misses. The fake scale reads the weight at the middle of the window asked for."""
+        if b is None:
+            args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
+            b = drc.BalanceSession(args)
+            b.source = FakeGauge()
+        events = []
+        start = getattr(b, "_fake_t", 0.0)
+        weight = lambda t: 400.0 + sum(g for tt, g in getattr(b, "_fake_events", []) + events if tt <= t)
+        b.scale = type("S", (), {"grams_before": lambda self, t, w, g: weight(t - (w + g) / 2)})()
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            b.setup()
+            if not b.rounds and b.state is None:
+                b.setup()
             b.answer(first)
             order = (left_g, right_g) if first == "L" else (right_g, left_g)
-            t, held = 0.0, 0.0
+            t = start
             for k in range(2 * drc.BALANCE_TIPS_PER_SIDE + 3):
-                t += order[k % 2] / flow
+                q = flows[k] if flows else flow
+                t += order[k % 2] / q
                 if k != unseen:
                     b.on_tip(t)
-                water[0] += held                    # last tip's late water has arrived by now
-                held = 0.0
+                v = order[k % 2]
                 if k == late:
-                    water[0] += 0.05 * order[k % 2]
-                    held = 0.95 * order[k % 2]
+                    events += [(t + 1, 0.05 * v), (t + order[(k + 1) % 2] / q - 3, 0.95 * v)]
                 else:
-                    water[0] += order[k % 2]        # this tip's water reaches the scale before the next tip
+                    events.append((t + 1, v))
+        b._fake_t, b._fake_events = t + 120, getattr(b, "_fake_events", []) + events
         return b, out.getvalue()
 
     def test_percent_difference_is_the_worksheet_formula(self):
@@ -560,14 +566,35 @@ class BalanceTests(unittest.TestCase):
         self.assertIn("missed or extra tip", out)
         self.assertEqual(b.state, "side")       # asks which side is filling again
 
-    def test_late_draining_water_doesnt_change_the_sides(self):
-        # The real rig: tip 2 weighed 0.32 g and tip 3 weighed 7.68 g. The fill-time split ignores that.
+    def test_unsteady_drip_doesnt_change_the_sides(self):
+        # The pump feeding the drip regulator wanders about 10 %; each tip's weight doesn't care
+        flows = [0.1 * (1 + 0.1 * math.sin(k)) for k in range(20)]
+        b, out = self.session(left_g=5.5, right_g=6.0, flows=flows)
+        r = b.rounds[0]
+        self.assertAlmostEqual(r["left_avg_ml"], 5.5 / drc.DENSITY, places=2)
+        self.assertAlmostEqual(r["right_avg_ml"], 6.0 / drc.DENSITY, places=2)
+        self.assertIn("Cross-check from fill times", out)
+
+    def test_tip_still_draining_is_marked(self):
         b, out = self.session(left_g=6.0, right_g=5.6, late=4)
         r = b.rounds[0]
-        self.assertAlmostEqual(r["left_avg_ml"], 6.0 / drc.DENSITY, places=3)
-        self.assertAlmostEqual(r["right_avg_ml"], 5.6 / drc.DENSITY, places=3)
-        self.assertLess(min(r["left_scale_ml"] + r["right_scale_ml"]), 1.0)     # the single-tip weights show it
-        self.assertIn("Cross-check", out)
+        self.assertEqual(sum(r["left_draining"]) + sum(r["right_draining"]), 1)
+        self.assertIn("still draining", out)
+
+    def test_clean_drain_is_not_marked(self):
+        b, out = self.session(left_g=6.0, right_g=5.6)
+        r = b.rounds[0]
+        self.assertFalse(any(r["left_draining"] + r["right_draining"]))
+        self.assertNotIn("still draining", out)
+
+    def test_repeat_without_changing_the_stops_is_recorded(self):
+        b, _ = self.session(left_g=6.0, right_g=6.1)
+        with contextlib.redirect_stdout(io.StringIO()):
+            b.answer("")           # no stop sizes
+            b.answer("r")          # measure again, stops untouched
+        b, _ = self.session(left_g=6.0, right_g=6.1, b=b)
+        self.assertIsNone(b.rounds[0]["stops_changed"])
+        self.assertIs(b.rounds[1]["stops_changed"], False)
 
     def test_every_tip_is_logged(self):
         b, _ = self.session(left_g=6.0, right_g=6.1)
