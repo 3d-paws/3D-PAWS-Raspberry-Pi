@@ -1202,10 +1202,13 @@ class Session:
 
 # ----------------------------------------------------------------- bucket balancing
 # --balance: the load cell replaces the pipettors of the Rain Gauge Calibration Worksheet, Phase 2.
-# With a slow drip each tip's water lands on the scale before the next tip, so the step between the
-# weights before consecutive tips is one tip's water, and tips alternate sides. The operator says which
-# side is filling at the start; that names the sides. After 5 tips per side the worksheet table, the %
-# difference and the stop advice are printed; the operator changes a stop and measures again.
+# With a steady drip each side's fill time (from the tip switch) is proportional to the water it holds,
+# and the scale gives the round's total water. Each side's volume = the round's mean flow x its fill time.
+# The split comes from the switch timing because water drains into the container unevenly (on a real rig
+# most of a tip arrived within 4 s, the rest trickled in over a minute), which makes single-tip weights
+# noisy; each tip's own weight is still shown as a cross-check. The operator says which side is filling at
+# the start, which names the sides. After 5 tips per side the worksheet table, the % difference and the
+# stop advice are printed; the operator changes a stop and measures again.
 # Results go to balance_<GaugeID>_<date_time>/ and the latest one for a gauge is included in that
 # gauge's calibration results (for the certificate's bucket balance line).
 BALANCE_TIPS_PER_SIDE = 5        # worksheet: five tips on each side
@@ -1214,7 +1217,8 @@ BALANCE_ML = (5.5, 6.5)          # worksheet: the bucket should tip between 5.5 
 BALANCE_TARGET_ML = 6.0          # worksheet: ideally around 6 mL
 BALANCE_LOCKOUT_S = 2.0          # a "tip" sooner than this is the bucket bouncing (real tips are ~60 s apart)
 BALANCE_FAST_S = 10.0            # warn if tips come faster than this: water may still be draining at the next tip
-BALANCE_STEP = (0.5, 1.6)        # a tip's water outside these multiples of the round's median = missed or extra tip
+BALANCE_FILL = (0.6, 1.6)        # a fill time outside these multiples of its side's median = missed or extra tip
+BALANCE_FLOW_TOL = 5.0           # warn if a pair of fills (one each side) is this far (%) from the round's mean
 
 
 def pct_difference(a, b):
@@ -1295,66 +1299,116 @@ class BalanceSession:
         self.times, self.weights, self.first = [], [], None
         self.stops = ""
         self.fast_warned = False
+        self.attempt = getattr(self, "attempt", 0) + 1
         self.prompt("side", "Which side of the bucket is under the funnel filling right now? Type L or R:")
 
+    # Tips 1 to 10 are measured: their fill times (the gap before each) and their water (the weight change
+    # from just before each to just before the next), so a round needs tips 0 to 11
     def on_tip(self, t):
         if self.state != "measuring":
             return
         if self.times and t - self.times[-1] < BALANCE_LOCKOUT_S:
             self.say(f"   (ignored a pulse {t - self.times[-1]:.2f} s after a tip: bucket bounce)")
+            self._log_tip(len(self.times), t, t - self.times[-1], None, "ignored (bounce)")
             return
         if self.times and t - self.times[-1] < BALANCE_FAST_S and not self.fast_warned:
             self.fast_warned = True
             self.say("   NOTE: tips are coming fast. Slow the drip to about 1 tip per minute so each tip's "
                      "water has drained onto the scale before the next one.")
         self.times.append(t)
-        self.weights.append(self.scale.grams_before(t, PRE_WINDOW_S, PRE_GUARD_S))
-        k = len(self.weights) - 2          # the tip whose water is now known
-        if k < 0:
-            self.say("   First tip seen; measuring starts with it.")
-            return
-        g = self.weights[k + 1] - self.weights[k]
-        side = self._side(k)
-        n = sum(1 for j in range(k + 1) if self._side(j) == side)
-        self.say(f"   {side} tip {n}: {g:.2f} g = {g / DENSITY:.2f} mL")
-        if k + 1 >= 2 * BALANCE_TIPS_PER_SIDE:
+        w = self.scale.grams_before(t, PRE_WINDOW_S, PRE_GUARD_S)
+        self.weights.append(w)
+        j = len(self.times) - 1
+        self._log_tip(j, t, t - self.times[j - 1] if j else None, w, "")
+        n_tips = 2 * BALANCE_TIPS_PER_SIDE
+        if j == 0:
+            self.say("   First tip seen; measuring starts with the next one.")
+        elif j <= n_tips:
+            side = self._side(j)
+            n = sum(1 for i in range(1, j + 1) if self._side(i) == side)
+            self.say(f"   {side} tip {n}: filled in {t - self.times[j - 1]:.1f} s")
+        else:
             self._end_round()
 
     def _side(self, j):
         other = "Right" if self.first == "Left" else "Left"
         return self.first if j % 2 == 0 else other
 
+    # Every pulse of every attempt, so a round can be checked afterwards
+    def _log_tip(self, j, t, fill, w, note):
+        path = os.path.join(self.dir, "balance_tips.csv")
+        new = not os.path.exists(path)
+        with open(path, "a", newline="") as f:
+            out = csv.writer(f)
+            if new:
+                out.writerow(["attempt", "tip", "side", "time", "t_s", "fill_s", "weight_before_g", "note"])
+            out.writerow([self.attempt, j, self._side(j) if self.first else "", self.clock.stamp(t), round(t, 3),
+                          "" if fill is None else round(fill, 3), "" if w is None else round(w, 2), note])
+
     def _end_round(self):
-        steps = [b - a for a, b in zip(self.weights, self.weights[1:])][:2 * BALANCE_TIPS_PER_SIDE]
-        med = statistics.median(steps)
-        odd = [j for j, g in enumerate(steps) if not BALANCE_STEP[0] * med <= g <= BALANCE_STEP[1] * med]
-        if odd:
-            self.say(f"   Tip {odd[0] + 1} held {steps[odd[0]]:.2f} g, far from the others: a missed or extra tip, "
-                     "so the sides can't be told apart. This round is repeated.")
+        n_tips = 2 * BALANCE_TIPS_PER_SIDE
+        measured = range(1, n_tips + 1)
+        fills = {j: self.times[j] - self.times[j - 1] for j in measured}
+        # A missed or extra tip shows as a fill time far from its side's others
+        for side in ("Left", "Right"):
+            mine = [fills[j] for j in measured if self._side(j) == side]
+            med = statistics.median(mine)
+            bad = [v for v in mine if not BALANCE_FILL[0] * med <= v <= BALANCE_FILL[1] * med]
+            if bad:
+                self.say(f"   A {side.lower()} fill took {bad[0]:.1f} s, far from that side's {med:.1f} s: a missed or "
+                         "extra tip, so the sides can't be told apart. This round is repeated.")
+                self._new_round()
+                return
+        if any(w is None for w in self.weights[1:n_tips + 2]):
+            self.say("   No reading from the load cell for part of the round. This round is repeated.")
             self._new_round()
             return
+        total_g = self.weights[n_tips + 1] - self.weights[1]
+        flow = total_g / DENSITY / sum(fills.values())                     # mL per second
         ml = {"Left": [], "Right": []}
-        for j, g in enumerate(steps):
-            ml[self._side(j)].append(round(g / DENSITY, 3))
+        fill_s = {"Left": [], "Right": []}
+        scale_ml = {"Left": [], "Right": []}
+        for j in measured:
+            side = self._side(j)
+            fill_s[side].append(round(fills[j], 2))
+            ml[side].append(round(flow * fills[j], 3))
+            scale_ml[side].append(round((self.weights[j + 1] - self.weights[j]) / DENSITY, 3))
         left, right = statistics.mean(ml["Left"]), statistics.mean(ml["Right"])
+        pairs = [fills[j] + fills[j + 1] for j in range(1, n_tips, 2)]
+        spread = max(abs(p / statistics.mean(pairs) - 1) for p in pairs) * 100
         balanced, advice = balance_advice(left, right)
         rnd = {"round": len(self.rounds) + 1, "time": dt.datetime.now().isoformat(timespec="seconds"),
+               "method": "total water from the load cell, split by fill time",
                "left_ml": ml["Left"], "right_ml": ml["Right"], "left_avg_ml": round(left, 3),
                "right_avg_ml": round(right, 3), "diff_pct": round(pct_difference(left, right), 2),
                "mean_ml": round((left + right) / 2, 3), "balanced": balanced, "advice": advice,
-               "tips_per_min": round(60.0 * (len(self.times) - 1) / (self.times[-1] - self.times[0]), 2),
-               "stops": ""}
+               "left_fill_s": fill_s["Left"], "right_fill_s": fill_s["Right"],
+               "left_scale_ml": scale_ml["Left"], "right_scale_ml": scale_ml["Right"],
+               "left_scale_avg_ml": round(statistics.mean(scale_ml["Left"]), 3),
+               "right_scale_avg_ml": round(statistics.mean(scale_ml["Right"]), 3),
+               "total_g": round(total_g, 2), "flow_ml_min": round(flow * 60, 3), "pair_spread_pct": round(spread, 2),
+               "tips_per_min": round(60.0 * n_tips / sum(fills.values()), 2), "stops": ""}
         self.rounds.append(rnd)
-        self.say("\n" + self._table(rnd) + "\n\n" + advice + "\n")
+        note = ""
+        if spread > BALANCE_FLOW_TOL:
+            note = (f"\nNOTE: the drip changed during the round (a pair of fills was {spread:.1f}% from the average), "
+                    "so the split may be off. Repeat the round if the result is close to a limit.")
+        self.say("\n" + self._table(rnd) + note + "\n\n" + advice + "\n")
         self.prompt("stops", "Stop sizes used this round, e.g. 'L 3.0 R 3.5' (mm), or press Enter to skip:")
 
     def _table(self, r):
         lines = [f"Round {r['round']}" + (f"   stops: {r['stops']}" if r["stops"] else ""),
-                 "Trial   Left (mL)   Right (mL)"]
-        for i, (lv, rv) in enumerate(zip(r["left_ml"], r["right_ml"]), 1):
-            lines.append(f"{i:>5}   {lv:9.2f}   {rv:10.2f}")
-        lines.append(f"{'Avg':>5}   {r['left_avg_ml']:9.2f}   {r['right_avg_ml']:10.2f}")
+                 "Trial   Left fill (s)  Left (mL)   Right fill (s)  Right (mL)"]
+        for i in range(len(r["left_ml"])):
+            lines.append(f"{i + 1:>5}   {r['left_fill_s'][i]:13.1f}  {r['left_ml'][i]:9.2f}   "
+                         f"{r['right_fill_s'][i]:14.1f}  {r['right_ml'][i]:10.2f}")
+        lines.append(f"{'Avg':>5}   {statistics.mean(r['left_fill_s']):13.1f}  {r['left_avg_ml']:9.2f}   "
+                     f"{statistics.mean(r['right_fill_s']):14.1f}  {r['right_avg_ml']:10.2f}")
         lines.append(f"% difference = |A - B| / ((A + B) / 2) x 100 = {r['diff_pct']:.1f}%")
+        lines.append(f"Round total {r['total_g']:.2f} g at {r['flow_ml_min']:.2f} mL/min; drip steady to "
+                     f"{r['pair_spread_pct']:.1f}% (pairs of fills)")
+        lines.append(f"Cross-check, each tip weighed on its own (noisy if water drains slowly): "
+                     f"left {r['left_scale_avg_ml']:.2f} mL, right {r['right_scale_avg_ml']:.2f} mL")
         return "\n".join(lines)
 
     def answer(self, line):
@@ -1384,16 +1438,18 @@ class BalanceSession:
     def _save(self):
         last = self.rounds[-1]
         with open(os.path.join(self.dir, "balance.json"), "w") as f:
-            json.dump({"gauge_id": self.gauge_id, "method": f"load cell, {BALANCE_TIPS_PER_SIDE} tips per side",
+            json.dump({"gauge_id": self.gauge_id,
+                       "method": f"load cell total split by fill time, {BALANCE_TIPS_PER_SIDE} tips per side",
                        "limit_pct": BALANCE_LIMIT_PCT, "target_ml": list(BALANCE_ML),
                        "density_g_ml": DENSITY, "final": last, "rounds": self.rounds}, f, indent=2)
         with open(os.path.join(self.dir, "balance.csv"), "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["round", "stops", "side", "trial", "ml"])
+            w.writerow(["round", "stops", "side", "trial", "fill_s", "ml", "scale_ml"])
             for r in self.rounds:
                 for side in ("Left", "Right"):
-                    for i, v in enumerate(r[side.lower() + "_ml"], 1):
-                        w.writerow([r["round"], r["stops"], side, i, v])
+                    k = side.lower()
+                    for i, v in enumerate(r[k + "_ml"]):
+                        w.writerow([r["round"], r["stops"], side, i + 1, r[k + "_fill_s"][i], v, r[k + "_scale_ml"][i]])
         with open(os.path.join(self.dir, "summary.txt"), "w") as f:
             f.write(f"Bucket balance, gauge {self.gauge_id}\n\n"
                     + "\n\n".join(self._table(r) + "\n" + r["advice"] for r in self.rounds) + "\n")

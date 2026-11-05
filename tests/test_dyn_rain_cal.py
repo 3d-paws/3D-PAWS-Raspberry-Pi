@@ -9,6 +9,7 @@ Sessions are driven by feeding tip times straight to the script and answering it
 way an operator would, so a whole calibration runs instantly instead of in real time.
 """
 import argparse
+import csv
 import contextlib
 import importlib.util
 import io
@@ -490,8 +491,10 @@ class BalanceTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         drc.DATA_DIR = self.tmp.name
 
-    def session(self, left_g, right_g, first="L", unseen=None):
-        """Runs one round: the bucket alternates sides starting with `first`, one tip a minute."""
+    def session(self, left_g, right_g, first="L", unseen=None, late=None, flow=0.1):
+        """One round with a steady drip of `flow` g/s: each side fills for (its volume / flow) seconds, so tips
+        alternate sides starting with `first`. `unseen` is a tip the switch misses; `late` is a tip whose
+        water mostly arrives after the next tip, as the slow drain on the real rig did."""
         args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
         b = drc.BalanceSession(args)
         b.source = FakeGauge()
@@ -502,10 +505,18 @@ class BalanceTests(unittest.TestCase):
             b.setup()
             b.answer(first)
             order = (left_g, right_g) if first == "L" else (right_g, left_g)
-            for k in range(2 * drc.BALANCE_TIPS_PER_SIDE + 2):
-                if k != unseen:                # a tip the switch missed still dumps its water
-                    b.on_tip(60.0 * (k + 1))
-                water[0] += order[k % 2]       # this tip's water reaches the scale before the next tip
+            t, held = 0.0, 0.0
+            for k in range(2 * drc.BALANCE_TIPS_PER_SIDE + 3):
+                t += order[k % 2] / flow
+                if k != unseen:
+                    b.on_tip(t)
+                water[0] += held                    # last tip's late water has arrived by now
+                held = 0.0
+                if k == late:
+                    water[0] += 0.05 * order[k % 2]
+                    held = 0.95 * order[k % 2]
+                else:
+                    water[0] += order[k % 2]        # this tip's water reaches the scale before the next tip
         return b, out.getvalue()
 
     def test_percent_difference_is_the_worksheet_formula(self):
@@ -548,6 +559,23 @@ class BalanceTests(unittest.TestCase):
         self.assertEqual(b.rounds, [])
         self.assertIn("missed or extra tip", out)
         self.assertEqual(b.state, "side")       # asks which side is filling again
+
+    def test_late_draining_water_doesnt_change_the_sides(self):
+        # The real rig: tip 2 weighed 0.32 g and tip 3 weighed 7.68 g. The fill-time split ignores that.
+        b, out = self.session(left_g=6.0, right_g=5.6, late=4)
+        r = b.rounds[0]
+        self.assertAlmostEqual(r["left_avg_ml"], 6.0 / drc.DENSITY, places=3)
+        self.assertAlmostEqual(r["right_avg_ml"], 5.6 / drc.DENSITY, places=3)
+        self.assertLess(min(r["left_scale_ml"] + r["right_scale_ml"]), 1.0)     # the single-tip weights show it
+        self.assertIn("Cross-check", out)
+
+    def test_every_tip_is_logged(self):
+        b, _ = self.session(left_g=6.0, right_g=6.1)
+        with open(os.path.join(b.dir, "balance_tips.csv")) as f:
+            rows = list(csv.DictReader(f))
+        self.assertEqual(len(rows), 2 * drc.BALANCE_TIPS_PER_SIDE + 2)
+        self.assertEqual(rows[1]["side"], "Right")
+        self.assertAlmostEqual(float(rows[1]["fill_s"]), 61.0, places=2)
 
     def test_bounce_ignored(self):
         args = argparse.Namespace(sim=False, auto=False, speed=1.0, gauge_id="BAL")
