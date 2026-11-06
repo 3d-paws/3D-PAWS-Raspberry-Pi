@@ -15,9 +15,11 @@ Usage (from /home/pi/3d_paws/scripts/sensors/):
   python3 shield_test.py --once                one reading, no refresh, no log
   python3 shield_test.py --scan                which supported sensors answer, at which addresses
 
-Sensors are model@address, optionally =label. Models: sht45, sht31, bmp390, bmp581, mcp9808.
-Default set (one of each on one bus): sht45@0x44 sht31@0x45 bmp390@0x77 bmp581@0x47 mcp9808@0x18.
-The SHT31 must be at 0x45 (ADR pin high) next to an SHT45, which is fixed at 0x44.
+Sensors are model, model@address, and optionally =label. Models: sht45, sht31, bmp390, bmp581, mcp9808.
+Without an address the model's possible addresses are tried in order, skipping any already taken by an
+earlier sensor in the list. Default set: sht45 sht31 bmp390 bmp581 mcp9808 (one of each).
+The SHT31 and SHT45 are both at 0x44 by default; each driver checks which family answers, so the right
+one is used. To have both connected at once, tie the SHT31's ADR pin high (0x45).
 A sensor that doesn't answer at the start is listed as not found and left out.
 
 Results: /home/pi/data/tests/shield_test_<date_time>/readings.csv and summary.txt (written at Ctrl+C).
@@ -34,13 +36,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import drivers
 
 DATA_DIR = "/home/pi/data/tests"
-DEFAULT = ["sht45@0x44", "sht31@0x45", "bmp390@0x77", "bmp581@0x47", "mcp9808@0x18"]
+DEFAULT = ["sht45", "sht31", "bmp390", "bmp581", "mcp9808"]
 COLUMNS = [("temp_c", "Temp C", "%7.2f", "%+6.2f"), ("rh_pct", "RH %", "%6.1f", "%+5.1f"),
            ("pressure_hpa", "hPa", "%8.2f", "%+6.2f")]
 
 
 def parse_spec(spec):
-    """'sht31@0x45=outside' -> (model, address, label)."""
+    """'sht31@0x45=outside' -> (model, address, label); address and label are None when not given."""
     label = None
     if "=" in spec:
         spec, label = spec.split("=", 1)
@@ -49,11 +51,11 @@ def parse_spec(spec):
     if model not in drivers.MODELS:
         raise ValueError("unknown model %s (known: %s)" % (model, ", ".join(sorted(drivers.MODELS))))
     cls = drivers.MODELS[model]
-    address = int(addr, 16) if addr else cls.ADDRESSES[0]
-    if address not in cls.ADDRESSES:
+    address = int(addr, 16) if addr else None
+    if address is not None and address not in cls.ADDRESSES:
         raise ValueError("%s can't be at 0x%02X (possible: %s)" % (model, address,
                          ", ".join("0x%02X" % a for a in cls.ADDRESSES)))
-    return model, address, label or "%s@0x%02X" % (model, address)
+    return model, address, label
 
 
 class Stats:
@@ -79,12 +81,23 @@ class Stats:
 class Comparison:
     def __init__(self, bus, specs, ref=None):
         self.sensors, self.missing = [], []
+        taken = set()
         for spec in specs:
             model, address, label = parse_spec(spec)
-            try:
-                self.sensors.append((label, drivers.MODELS[model](bus, address)))
-            except (IOError, OSError) as e:
-                self.missing.append("%s (%s)" % (label, e))
+            cls = drivers.MODELS[model]
+            tries = [address] if address is not None else [a for a in cls.ADDRESSES if a not in taken]
+            error = "no free address"
+            for a in tries:
+                try:
+                    sensor = cls(bus, a)
+                except (IOError, OSError) as e:
+                    error = str(e) if address is not None else "not at %s" % ", ".join("0x%02X" % x for x in tries)
+                    continue
+                taken.add(a)
+                self.sensors.append((label or "%s@0x%02X" % (model, a), sensor))
+                break
+            else:
+                self.missing.append("%s (%s)" % (label or spec, error))
         if not self.sensors:
             raise IOError("none of the sensors answered")
         labels = [label for label, _ in self.sensors]

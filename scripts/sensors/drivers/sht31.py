@@ -1,5 +1,6 @@
-# Sensirion SHT31 (SHT3x) temperature and humidity, I2C 0x44, or 0x45 with the ADR pin high
-# Use 0x45 when an SHT45 (fixed at 0x44) is on the same bus.
+# Sensirion SHT31 (SHT3x) temperature and humidity, I2C 0x44 (default), or 0x45 with the ADR pin high
+# An SHT45 is also at 0x44, so the chip is identified (status register read) before it is used.
+# Both on one bus: tie the SHT31's ADR pin high (0x45).
 # Command 0x2400: single shot, high repeatability, no clock stretching, up to 15.5 ms
 # UCAR
 # Boulder, CO USA
@@ -14,8 +15,11 @@ class SHT31:
 	ADDRESSES = (0x44, 0x45)
 	QUANTITIES = ("temp_c", "rh_pct")
 
-	def __init__(self, bus, address=0x45):
+	def __init__(self, bus, address=0x44):
 		self.bus, self.address = bus, address
+		family = i2c_util.sht_family(bus, address)
+		if family != "sht3x":
+			raise IOError("not an SHT31" + (" (an SHT4x answered)" if family else ""))
 		self.read()
 
 	def read(self):

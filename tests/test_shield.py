@@ -24,11 +24,13 @@ def sensirion(t_word, rh_word):
 
 
 class FakeBus:
-    """SHT45 at 0x44, SHT31 at 0x45, MCP9808 at 0x18, BMP581 at 0x47, BMP390 at 0x77 (by default)."""
+    """SHT45 at 0x44, SHT31 at 0x45, MCP9808 at 0x18, BMP581 at 0x47, BMP390 at 0x77 (by default).
+    `sht` says which Sensirion family is at each address; each answers only its own commands."""
 
-    def __init__(self, temps=None, present=(0x44, 0x45, 0x18, 0x47, 0x77)):
+    def __init__(self, temps=None, present=(0x44, 0x45, 0x18, 0x47, 0x77), sht=None):
         self.t = {0x44: 21.5, 0x45: 21.7, 0x18: 21.25, 0x47: 21.6, 0x77: 21.5}
         self.t.update(temps or {})
+        self.sht = sht or {0x44: "sht4x", 0x45: "sht3x"}
         self.present = set(present)
         self.pending = {}
         self.corrupt = False
@@ -42,16 +44,28 @@ class FakeBus:
 
     def write_byte(self, a, v):
         self._here(a)
-        if a == 0x44 and v == 0xFD:
+        self.pending.pop(a, None)
+        if self.sht.get(a) == "sht4x" and v == 0xFD:
             self.pending[a] = sensirion(round((self.t[a] + 45) / 175 * 65535), round((40.0 + 6) / 125 * 65535))
+        elif self.sht.get(a) == "sht4x" and v == 0x89:
+            self.pending[a] = sensirion(0x1234, 0x5678)                       # serial number
+        elif self.sht.get(a) == "sht3x":
+            pass                                                              # half a 16-bit command: no reply
 
     def write_byte_data(self, a, reg, v):
         self._here(a)
-        if a == 0x45 and reg == 0x24:
+        self.pending.pop(a, None)
+        if self.sht.get(a) == "sht4x":
+            raise OSError(121, "Remote I/O error")                            # 0xF3 / 0x24 aren't SHT4x commands
+        if self.sht.get(a) == "sht3x" and reg == 0x24:
             self.pending[a] = sensirion(round((self.t[a] + 45) / 175 * 65535), round(42.0 / 100 * 65535))
+        elif self.sht.get(a) == "sht3x" and (reg, v) == (0xF3, 0x2D):
+            self.pending[a] = sensirion(0x8010, 0)[:3]                        # status word
 
     def read_raw(self, a, n):
         self._here(a)
+        if a not in self.pending:
+            raise OSError(121, "Remote I/O error")                            # nothing to send: NACK
         data = self.pending.pop(a)
         if self.corrupt:
             data[2] ^= 0xFF
@@ -102,9 +116,19 @@ class DriverTests(FakeBusTest):
         self.assertAlmostEqual(r["rh_pct"], 40.0, places=2)
 
     def test_sht31_formula_differs_from_sht45_for_humidity(self):
-        r = drivers.SHT31(self.bus).read()
+        r = drivers.SHT31(self.bus, 0x45).read()
         self.assertAlmostEqual(r["temp_c"], 21.7, places=2)
         self.assertAlmostEqual(r["rh_pct"], 42.0, places=2)
+
+    def test_sht31_and_sht45_told_apart_at_0x44(self):
+        sht31_here = FakeBus(sht={0x44: "sht3x"}, present=(0x44,))
+        self.assertEqual(i2c_util.sht_family(sht31_here, 0x44), "sht3x")
+        self.assertEqual(i2c_util.sht_family(self.bus, 0x44), "sht4x")
+        self.assertAlmostEqual(drivers.SHT31(sht31_here, 0x44).read()["temp_c"], 21.5, places=2)
+        with self.assertRaisesRegex(IOError, "an SHT3x answered"):
+            drivers.SHT45(sht31_here, 0x44)
+        with self.assertRaisesRegex(IOError, "an SHT4x answered"):
+            drivers.SHT31(self.bus, 0x44)
 
     def test_crc_error_is_an_ioerror(self):
         s = drivers.SHT45(self.bus)
@@ -162,6 +186,16 @@ class ComparisonTests(FakeBusTest):
         self.assertEqual([label for label, _ in c.sensors], ["sht45@0x44", "bmp581@0x47"])
         self.assertEqual(len(c.missing), 3)
 
+    def test_sht31_alone_at_0x44_is_found_by_the_default_set(self):
+        bus = FakeBus(sht={0x44: "sht3x"}, present=(0x44, 0x47))
+        c = shield_test.Comparison(bus, shield_test.DEFAULT)
+        self.assertEqual([label for label, _ in c.sensors], ["sht31@0x44", "bmp581@0x47"])
+        self.assertTrue(any(m.startswith("sht45") for m in c.missing))
+
+    def test_both_sht_models_with_the_sht31_at_0x45(self):
+        c = shield_test.Comparison(self.bus, ["sht45", "sht31"])
+        self.assertEqual([label for label, _ in c.sensors], ["sht45@0x44", "sht31@0x45"])
+
     def test_running_mean_and_sd(self):
         st = shield_test.Stats()
         for x in (0.1, 0.3, 0.2):
@@ -171,7 +205,7 @@ class ComparisonTests(FakeBusTest):
 
     def test_labels_and_bad_specs(self):
         self.assertEqual(shield_test.parse_spec("sht31@0x45=outside"), ("sht31", 0x45, "outside"))
-        self.assertEqual(shield_test.parse_spec("sht45"), ("sht45", 0x44, "sht45@0x44"))
+        self.assertEqual(shield_test.parse_spec("sht45"), ("sht45", None, None))
         with self.assertRaises(ValueError):
             shield_test.parse_spec("sht45@0x50")
         with self.assertRaises(ValueError):

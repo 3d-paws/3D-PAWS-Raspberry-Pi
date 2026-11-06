@@ -1,4 +1,5 @@
 # Sensirion SHT45 (SHT4x) temperature and humidity, I2C 0x44 (0x45 and 0x46 on other SHT4x part numbers)
+# An SHT31 can also be at 0x44, so the chip is identified (serial number read) before it is used.
 # Command 0xFD: high precision, no heater, about 9 ms; reply = temperature word + CRC, humidity word + CRC
 # UCAR
 # Boulder, CO USA
@@ -15,7 +16,10 @@ class SHT45:
 
 	def __init__(self, bus, address=0x44):
 		self.bus, self.address = bus, address
-		self.read()                                   # raises IOError if nothing answers correctly
+		family = i2c_util.sht_family(bus, address)
+		if family != "sht4x":
+			raise IOError("not an SHT45" + (" (an SHT3x answered)" if family else ""))
+		self.read()
 
 	def read(self):
 		self.bus.write_byte(self.address, 0xFD)
