@@ -99,8 +99,10 @@ if test_toggle == "false":
             add("bt1", data[0])
             add("mslp", data[2])
 
+    # bmp_bme.py reads a BMP581 when no older sensor is connected; if the BMP581 job is also on, it is the
+    # same chip, so its reading goes to its daily file (checkParticleFile) but not to CHORDS a second time
     bmp581 = checkParticleFile("bmp581")
-    if bmp581:
+    if bmp581 and not (bm and bm[5] == "bmp581"):
         n = 2 if bm else 1
         add("bp%d" % n, bmp581[7], 300, 1100)
         add("bt%d" % n, bmp581[6], -40, 60)
@@ -118,8 +120,9 @@ if test_toggle == "false":
             add("%st1" % prefix, data[5])
             add("%sh1" % prefix, data[6], 0, 100)
 
+    # Likewise humidity.py reads an SHT45 when there is no HTU21D or SHT31
     sht45 = checkParticleFile("sht45")
-    if sht45:
+    if sht45 and not (humidity and humidity[5] == "sht45"):
         n = 2 if humidity and humidity[5] != "htu" else 1
         add("st%d" % n, sht45[6], -40, 60)
         add("sh%d" % n, sht45[7], 0, 100)
