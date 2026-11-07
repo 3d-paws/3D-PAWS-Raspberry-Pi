@@ -35,7 +35,8 @@ def check_words(data):
 def sht_family(bus, address):
 	"""Which Sensirion family answers at this address: "sht3x", "sht4x" or None. Both can sit at 0x44.
 	SHT3x: the status register read (16-bit command 0xF32D) returns a word + CRC; the SHT4x has no such command.
-	SHT4x: the serial number read (command 0x89) returns two words + CRCs; the SHT3x needs 16-bit commands."""
+	SHT4x: the serial number read (command 0x89) or a measurement (0xFD) returns two words + CRCs; the SHT3x
+	needs 16-bit commands and answers neither."""
 	import time
 	try:
 		bus.write_byte_data(address, 0xF3, 0x2D)
@@ -44,10 +45,14 @@ def sht_family(bus, address):
 		return "sht3x"
 	except (IOError, OSError):
 		pass
-	try:
-		bus.write_byte(address, 0x89)
-		time.sleep(0.002)
-		check_words(read_bytes(bus, address, 6))
-		return "sht4x"
-	except (IOError, OSError):
-		return None
+	# SHT4x: serial number (10 ms, as in Sensirion's and Adafruit's code), then a high precision
+	# measurement (0xFD, about 9 ms) as a second check; an SHT3x answers neither
+	for command in (0x89, 0xFD):
+		try:
+			bus.write_byte(address, command)
+			time.sleep(0.01)
+			check_words(read_bytes(bus, address, 6))
+			return "sht4x"
+		except (IOError, OSError):
+			continue
+	return None
