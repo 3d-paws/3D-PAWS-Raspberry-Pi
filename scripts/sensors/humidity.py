@@ -19,12 +19,18 @@ try:
 	sensor = HTU21D(i2c)
 	which_sensor = "htu"
 except:
-	import drivers
-	from smbus2 import SMBus
-	if drivers.i2c_util.sht_family(SMBus(1), 0x44) == "sht4x":
-		sensor = drivers.SHT45(SMBus(1), 0x44)
-		which_sensor = "sht45"
-	else:
+	# An SHT45 is read with the direct driver; anything else (including the driver or smbus2 missing)
+	# falls back to the SHT31 exactly as before
+	sensor = None
+	try:
+		import drivers
+		from smbus2 import SMBus
+		if drivers.i2c_util.sht_family(SMBus(1), 0x44) == "sht4x":
+			sensor = drivers.SHT45(SMBus(1), 0x44)
+			which_sensor = "sht45"
+	except Exception:
+		sensor = None
+	if sensor is None:
 		import adafruit_sht31d
 		sensor = adafruit_sht31d.SHT31D(i2c)
 		which_sensor = "sht"

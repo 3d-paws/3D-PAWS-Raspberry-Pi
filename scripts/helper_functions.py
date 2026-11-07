@@ -163,10 +163,16 @@ def headerSensorNames():
 		hum = "htu"
 	except Exception:
 		try:
-			drivers, SMBus = _drivers()
-			hum = {"sht3x": "sht", "sht4x": "sht45"}.get(drivers.i2c_util.sht_family(SMBus(1), 0x44), "hum")
+			import adafruit_sht31d
+			adafruit_sht31d.SHT31D(i2c or board.I2C())
+			hum = "sht"
 		except Exception:
-			pass
+			try:
+				drivers, SMBus = _drivers()
+				if drivers.i2c_util.sht_family(SMBus(1), 0x44) == "sht4x":
+					hum = "sht45"
+			except Exception:
+				pass
 	return bm, hum
 
 
