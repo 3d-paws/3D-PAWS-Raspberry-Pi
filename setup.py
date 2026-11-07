@@ -34,6 +34,7 @@ setup(
             "setuptools==40.8.0",
             "SI1145==1.0.2",
             "smbus==1.1.post2",
+            "smbus2==0.4.3",
             "spidev==3.5",
             "wxPython==4.0.4"
         ], 

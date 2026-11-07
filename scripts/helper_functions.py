@@ -65,6 +65,70 @@ def getCron():
 	return [interval, chords, chords_toggle]
 	
 
+# Column name prefixes for the daily recordings file: which pressure and which humidity sensor is connected.
+# The older sensors are tried first, the same as bmp_bme.py and humidity.py; never raises, so a station
+# without one of them still gets its data file (with a generic "bm" or "hum" name).
+def headerSensorNames():
+	bm, hum = "bm", "hum"
+	i2c = None
+	try:
+		import adafruit_bmp3xx
+		i2c = board.I2C()
+		adafruit_bmp3xx.BMP3XX_I2C(i2c)
+		bm = "bmp3"
+	except Exception:
+		try:
+			import adafruit_bmp280
+			i2c = busio.I2C(board.SCL, board.SDA)
+			adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+			bm = "bmp2"
+		except Exception:
+			try:
+				import adafruit_bme280
+				i2c = board.I2C()
+				adafruit_bme280.Adafruit_BME280_I2C(i2c)
+				bm = "bme2"
+			except Exception:
+				try:
+					drivers, SMBus = _drivers()
+					for address in drivers.BMP581.ADDRESSES:
+						try:
+							drivers.BMP581(SMBus(1), address)
+							bm = "bmp581"
+							break
+						except (IOError, OSError):
+							continue
+				except Exception:
+					pass
+	try:
+		from adafruit_htu21d import HTU21D
+		HTU21D(i2c or board.I2C())
+		hum = "htu"
+	except Exception:
+		try:
+			import adafruit_sht31d
+			adafruit_sht31d.SHT31D(i2c or board.I2C())
+			hum = "sht"
+		except Exception:
+			try:
+				drivers, SMBus = _drivers()
+				if drivers.i2c_util.sht_family(SMBus(1), 0x44) == "sht4x":
+					hum = "sht45"
+			except Exception:
+				pass
+	return bm, hum
+
+
+# The direct I2C sensor drivers in scripts/sensors/drivers (importable from upkeep scripts too)
+def _drivers():
+	sensors = '/home/pi/3d_paws/scripts/sensors'
+	if sensors not in sys.path:
+		sys.path.insert(0, sensors)
+	import drivers
+	from smbus2 import SMBus
+	return drivers, SMBus
+
+
 # Print output and/or log it
 def output(show, line, sensor, remote = None):
 	inputs = getVariables()
@@ -98,30 +162,7 @@ def output(show, line, sensor, remote = None):
 	else:
 		file = open(filename, 'a')
 		if os.path.getsize(filename) == 0 and sensor == "all":
-			try:
-				import adafruit_bmp3xx
-				i2c = board.I2C()
-				adafruit_bmp3xx.BMP3XX_I2C(i2c)
-				bm = "bmp3"
-			except:
-				try:
-					import adafruit_bmp280
-					i2c = busio.I2C(board.SCL, board.SDA)
-					adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
-					bm = "bmp2"
-				except:
-					import adafruit_bme280
-					i2c = board.I2C()
-					adafruit_bme280.Adafruit_BME280_I2C(i2c)
-					bm = "bme2"
-			try:
-				from adafruit_htu21d import HTU21D
-				sensor = HTU21D(i2c)
-				hum = "htu"
-			except:
-				import adafruit_sht31d
-				sensor = adafruit_sht31d.SHT31D(i2c)
-				hum = "sht"
+			bm, hum = headerSensorNames()
 			file.write(f"year  mon  day  hour  min  int  {bm}_temp  {bm}_pres  {bm}_slp  {bm}_alt  bme2_hum  {hum}_temp  {hum}_hum  mcp9808  tipping  vis_light  ir_light  uv_light  wind_dir  wind_speed\n")
 		file.write(full_line + '\n')
 	file.close()

@@ -1,5 +1,6 @@
 #!/usr/bin/python
-# Code to control the BMP280 and BME280 I2C sensors. Write observations to disk
+# Code to control the BMP390, BMP280, BME280 or BMP581 I2C sensors. Write observations to disk
+# Tried in that order; the BMP581 (I2C 0x47 or 0x46) is only used when none of the others answers.
 # Paul A. Kucera, Ph.D. and Joseph Rener
 # UCAR
 # Boulder, CO USA
@@ -22,26 +23,44 @@ try:
 	# Initialize correct sensor
 	which_sensor = False
 	try:
-		import adafruit_bmp3xx
-		i2c = board.I2C()
-		bmp = adafruit_bmp3xx.BMP3XX_I2C(i2c)
-		which_sensor = "bmp"
-	except:
 		try:
-			import adafruit_bmp280
-			i2c = busio.I2C(board.SCL, board.SDA)
-			bmp = adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+			import adafruit_bmp3xx
+			i2c = board.I2C()
+			bmp = adafruit_bmp3xx.BMP3XX_I2C(i2c)
 			which_sensor = "bmp"
 		except:
-			import adafruit_bme280
-			i2c = board.I2C()
-			bme = adafruit_bme280.Adafruit_BME280_I2C(i2c)
-			which_sensor = "bme"
+			try:
+				import adafruit_bmp280
+				i2c = busio.I2C(board.SCL, board.SDA)
+				bmp = adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
+				which_sensor = "bmp"
+			except:
+				import adafruit_bme280
+				i2c = board.I2C()
+				bme = adafruit_bme280.Adafruit_BME280_I2C(i2c)
+				which_sensor = "bme"
+	except Exception:
+		# None of the older sensors: try a BMP581, read with the direct I2C driver
+		import drivers
+		from smbus2 import SMBus
+		bmp581 = None
+		for address in drivers.BMP581.ADDRESSES:
+			try:
+				bmp581 = drivers.BMP581(SMBus(1), address)
+				break
+			except (IOError, OSError):
+				continue
+		if bmp581 is None:
+			raise IOError("No BMP390, BMP280, BME280 or BMP581 found")
+		which_sensor = "bmp581"
 
 	# Run once... or if in test mode, run every 10 seconds during the interval
 	for x in range (0,iterations):
 		# Get and calculate data
-		if which_sensor == "bmp":
+		if which_sensor == "bmp581":
+			reading = bmp581.read()
+			tempC, pressure = reading["temp_c"], reading["pressure_hpa"]
+		elif which_sensor == "bmp":
 			bmp.sea_level_pressure = pressure_level
 			tempC = bmp.temperature
 			pressure = bmp.pressure
@@ -55,7 +74,9 @@ try:
 		station_pres = pressure
 
 		# Print to screen
-		if which_sensor == "bmp":
+		if which_sensor == "bmp581":
+			print("BMP581 Sensor")
+		elif which_sensor == "bmp":
 			print("BMP Sensor")
 		else:
 			print("BME Sensor")
@@ -68,7 +89,7 @@ try:
 		print()
 
 		# Handle script output
-		if which_sensor == "bmp":
+		if which_sensor in ("bmp", "bmp581"):
 			line = "%s %.2f %.2f %.2f %.2f" % (which_sensor, tempC, station_pres, slp, altitude)
 		else:
 			line = "%s %.2f %.2f %.2f %.2f %.2f" % (which_sensor, tempC, station_pres, slp, altitude, humidity)

@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-# Code to control the HTU21D temperature and humidity sensor. Write observations to disk
+# Code to control the HTU21D, SHT31 or SHT45 temperature and humidity sensor. Write observations to disk
+# Tried in that order. The SHT31 and SHT45 are both at I2C 0x44, so the Sensirion family is identified first.
 # Paul A. Kucera, Ph.D. and Joseph Rener
 # UCAR
 # Boulder, CO USA
@@ -18,9 +19,21 @@ try:
 	sensor = HTU21D(i2c)
 	which_sensor = "htu"
 except:
-	import adafruit_sht31d
-	sensor = adafruit_sht31d.SHT31D(i2c)
-	which_sensor = "sht"
+	# An SHT45 is read with the direct driver; anything else (including the driver or smbus2 missing)
+	# falls back to the SHT31 exactly as before
+	sensor = None
+	try:
+		import drivers
+		from smbus2 import SMBus
+		if drivers.i2c_util.sht_family(SMBus(1), 0x44) == "sht4x":
+			sensor = drivers.SHT45(SMBus(1), 0x44)
+			which_sensor = "sht45"
+	except Exception:
+		sensor = None
+	if sensor is None:
+		import adafruit_sht31d
+		sensor = adafruit_sht31d.SHT31D(i2c)
+		which_sensor = "sht"
 
 try:
 	#Get arguments
@@ -31,15 +44,16 @@ try:
 
 	# Run once... or if in test mode, run every 10 seconds during the interval
 	for x in range (0,iterations):
-		tempC = sensor.temperature
+		if which_sensor == "sht45":
+			reading = sensor.read()
+			tempC, rh = reading["temp_c"], reading["rh_pct"]
+		else:
+			tempC = sensor.temperature
+			rh = sensor.relative_humidity
 		tempF = tempC*1.8+32
-		rh = sensor.relative_humidity
 
 		# Print to screen
-		if which_sensor == "htu":
-			print("HTU21D Sensor")
-		else:
-			print("STH31D Sensor")
+		print({"htu": "HTU21D Sensor", "sht": "SHT31D Sensor", "sht45": "SHT45 Sensor"}[which_sensor])
 		print("Temperature:  %.2f degC" % tempC)
 		print("Temperature:  %.2f degF" % tempF)
 		print("Humidity:     %.0f%%" % rh)
